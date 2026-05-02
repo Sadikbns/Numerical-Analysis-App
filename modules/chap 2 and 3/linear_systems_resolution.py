@@ -220,6 +220,98 @@ def solve_cholesky(A, b):
     y = _forward_substitution(L, b)
     x = _back_substitution(L.T, y)
     return x, L
+# Convergence Conditions for Iterative Methods
+def is_strictly_diagonally_dominant(A):
+    A = np.array(A, dtype=float)
+    n = A.shape[0]
+    
+    if A.shape[0] != A.shape[1]:
+        raise ValueError("A must be a square matrix")
+    
+    for i in range(n):
+        diag = abs(A[i, i])
+        sum_other = np.sum(np.abs(A[i, :]) - np.abs(A[i, i]))
+        if diag <= sum_other:
+            return False
+    
+    return True
+
+
+def is_symmetric_positive_definite(A):
+    
+    A = np.array(A, dtype=float)
+    
+    if A.shape[0] != A.shape[1]:
+        raise ValueError("A must be a square matrix")
+    
+    # Check symmetry
+    if not np.allclose(A, A.T, atol=1e-10):
+        return False
+    
+    # Check positive definiteness using eigenvalues
+    eigenvalues = np.linalg.eigvalsh(A)
+    
+    return np.all(eigenvalues > 1e-10)
+
+
+def induced_matrix_norm(A, norm_type=2):
+  
+    A = np.array(A, dtype=float)
+    
+    return np.linalg.norm(A, ord=norm_type)
+
+
+def spectral_radius(A):
+   
+    A = np.array(A, dtype=float)
+    
+    if A.shape[0] != A.shape[1]:
+        raise ValueError("A must be a square matrix")
+    
+    eigenvalues = np.linalg.eigvals(A)
+    rho = np.max(np.abs(eigenvalues))
+    
+    return rho
+def check_convergence_conditions(A, verbose=False):
+    A = np.array(A, dtype=float)
+    results = {}
+    
+    try:
+        results['dds'] = is_strictly_diagonally_dominant(A)
+    except:
+        results['dds'] = False
+    
+    try:
+        results['spd'] = is_symmetric_positive_definite(A)
+    except:
+        results['spd'] = False
+    
+    results['norm_1'] = induced_matrix_norm(A, norm_type=1)
+    results['norm_2'] = induced_matrix_norm(A, norm_type=2)
+    results['norm_inf'] = induced_matrix_norm(A, norm_type=np.inf)
+    results['spectral_radius'] = spectral_radius(A)
+    results['converges'] = results['spectral_radius'] < 1
+    
+    if verbose:
+        print("=" * 70)
+        print("CONVERGENCE CONDITIONS ANALYSIS")
+        print("=" * 70)
+        print(f"1. Strictly Diagonally Dominant (DDS):     {results['dds']}")
+        print(f"   (SUFFICIENT condition)")
+        print(f"\n2. Symmetric and Positive Definite (SPD):  {results['spd']}")
+        print(f"   (SUFFICIENT condition)")
+        print(f"\n3. Induced Matrix Norms:")
+        print(f"   ||A||₁ (column norm):    {results['norm_1']:.6f}  (< 1? {results['norm_1'] < 1})")
+        print(f"   ||A||₂ (spectral norm):  {results['norm_2']:.6f}  (< 1? {results['norm_2'] < 1})")
+        print(f"   ||A||∞ (row norm):       {results['norm_inf']:.6f}  (< 1? {results['norm_inf'] < 1})")
+        print(f"   (SUFFICIENT condition if < 1)")
+        print(f"\n4. Spectral Radius:                        {results['spectral_radius']:.6f}")
+        print(f"   (NECESSARY & SUFFICIENT condition: < 1? {results['converges']})")
+        print("=" * 70)
+        print(f"CONVERGENCE GUARANTEED: {results['converges']}")
+        print("=" * 70)
+    
+    return results
 
 
 __all__ = [
@@ -231,4 +323,9 @@ __all__ = [
     "solve_lu",
     "cholesky_decomposition",
     "solve_cholesky",
+    "is_strictly_diagonally_dominant",
+    "is_symmetric_positive_definite",
+    "induced_matrix_norm",
+    "spectral_radius",
+    "check_convergence_conditions",
 ]
