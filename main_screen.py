@@ -65,7 +65,7 @@ class MainScreen(tk.Tk):
         axes = [
             ("Axe 1 — Function Analysis", "#27ae60", "axe1_screen.py"),
             ("Axe 2 — Linear Systems", "#2980b9", "axe2_screen.py"),
-            ("Axe 3 — Additional Tools", "#8e44ad", "axe3_screen.py"),
+            ("Axe 3 — Interpolation / Approximation", "#8e44ad", "axe3_screen.py"),
         ]
 
         for label, color, module in axes:

@@ -82,7 +82,7 @@ class Axe2Screen(tk.Tk):
                                padx=10, pady=8)
         act_lf.pack(fill="x", pady=(0, 8))
 
-        for label in ["Normes Induites", "Matrice Triangulaire Sup / Inf", "..."]:
+        for label in ["Normes Induites", "Calculate Det", "..."]:
             tk.Button(act_lf, text=label, bg="#eaf4fb", fg="#1a6499",
                       font=("Helvetica", 10), relief="solid", bd=1,
                       width=30, cursor="hand2").pack(pady=3, anchor="w")
