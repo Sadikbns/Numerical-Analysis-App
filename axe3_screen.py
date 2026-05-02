@@ -16,6 +16,7 @@ try:
         newton_polynomial,
         least_squares_polynomial,
         chebyshev_approximation,
+        gradient_descent_sympy,
     )
 except ImportError as e:
     print("Warning: Could not import interpolation module:", e)
@@ -69,7 +70,7 @@ class Axe3Screen(tk.Tk):
         tk.Label(inp, text="Method:", bg="#f0f4f8", font=("Helvetica", 10, "bold")).pack(anchor="w")
         self.method_var = tk.StringVar(value="Lagrange")
 
-        for m in ["Lagrange", "Newton", "Least Squares", "Chebyshev"]:
+        for m in ["Lagrange", "Newton", "Least Squares", "Chebyshev", "Gradient Descent"]:
             tk.Radiobutton(inp, text=m, variable=self.method_var, value=m,
                            bg="#f0f4f8", command=self._update_inputs).pack(anchor="w")
 
@@ -130,6 +131,31 @@ class Axe3Screen(tk.Tk):
             for d in [3,5,7,9]:
                 tk.Radiobutton(self.extra_frame, text=d, variable=self.cheb_degree, value=d, bg="#f0f4f8").pack(anchor="w")
 
+        elif method == "Gradient Descent":
+            tk.Label(self.extra_frame, text="Function f(vars):", bg="#f0f4f8", font=("Helvetica", 10, "bold")).pack(anchor="w", pady=(8, 2))
+            self.gd_func_entry = tk.Entry(self.extra_frame, width=40)
+            self.gd_func_entry.insert(0, "(x-1)**2 + 2*(y+2)**2")
+            self.gd_func_entry.pack(anchor="w", pady=2)
+
+            tk.Label(self.extra_frame, text="Variables (comma-separated):", bg="#f0f4f8").pack(anchor="w", pady=(8, 2))
+            self.gd_vars_entry = tk.Entry(self.extra_frame, width=20)
+            self.gd_vars_entry.insert(0, "x,y")
+            self.gd_vars_entry.pack(anchor="w", pady=2)
+
+            tk.Label(self.extra_frame, text="Initial estimation x0 (comma-separated):", bg="#f0f4f8").pack(anchor="w", pady=(8, 2))
+            self.gd_x0_entry = tk.Entry(self.extra_frame, width=20)
+            self.gd_x0_entry.insert(0, "0,0")
+            self.gd_x0_entry.pack(anchor="w", pady=2)
+
+            f2 = tk.Frame(self.extra_frame, bg="#f0f4f8")
+            f2.pack(anchor="w", pady=4)
+            tk.Label(f2, text="lr:", bg="#f0f4f8").pack(side="left")
+            self.gd_lr_entry = tk.Entry(f2, width=6); self.gd_lr_entry.insert(0, "0.1"); self.gd_lr_entry.pack(side="left", padx=4)
+            tk.Label(f2, text="max_iter:", bg="#f0f4f8").pack(side="left")
+            self.gd_max_iter_entry = tk.Entry(f2, width=6); self.gd_max_iter_entry.insert(0, "200"); self.gd_max_iter_entry.pack(side="left", padx=4)
+            tk.Label(f2, text="tol:", bg="#f0f4f8").pack(side="left")
+            self.gd_tol_entry = tk.Entry(f2, width=8); self.gd_tol_entry.insert(0, "1e-6"); self.gd_tol_entry.pack(side="left", padx=4)
+
     # ── Right Panel ───────────────────────────────────────────────
     def _right_panel(self, parent):
         frame = tk.Frame(parent, bg="#f0f4f8")
@@ -175,6 +201,9 @@ class Axe3Screen(tk.Tk):
             x = sp.symbols('x')
             result_text = ""
             y_approx = None
+            real_func = None
+            history = []
+            obj_vals = []
 
             if method == "Lagrange":
                 poly, _ = lagrange_interpolation(x_data, y_data)
@@ -198,34 +227,126 @@ class Axe3Screen(tk.Tk):
                 a = float(self.a_entry.get())
                 b = float(self.b_entry.get())
                 deg = self.cheb_degree.get()
-                # Use first function as example or make a function input later
-                def f(t): return np.cos(t) if abs(t) < 10 else 0
+               
+                def f(t):
+                    return np.cos(np.asarray(t, dtype=float))
                 res = chebyshev_approximation(f, deg, a, b)
                 poly = res["poly_sympy"]
                 result_text = str(poly)
                 y_approx = res["evaluate"]
+                real_func = f
+
+            elif method == "Gradient Descent":
+                # Read user inputs
+                func_str = self.gd_func_entry.get()
+                vars_str = self.gd_vars_entry.get()
+                x0_str = self.gd_x0_entry.get()
+                lr = float(self.gd_lr_entry.get())
+                max_iter = int(self.gd_max_iter_entry.get())
+                tol = float(self.gd_tol_entry.get())
+
+                # Parse variables
+                var_names = [s.strip() for s in vars_str.split(',') if s.strip()]
+                if len(var_names) == 0:
+                    messagebox.showerror("Error", "Enter at least one variable name")
+                    return
+                vars_syms = sp.symbols(' '.join(var_names))
+                if len(var_names) == 1:
+                    vars_syms = (vars_syms,)
+
+                # Parse function
+                local_dict = {n: v for n, v in zip(var_names, vars_syms)}
+                try:
+                    func_sympy = sp.sympify(func_str, locals=local_dict)
+                except Exception as e:
+                    messagebox.showerror("Error", f"Failed to parse function: {e}")
+                    return
+
+                # Parse initial estimation
+                try:
+                    x0 = [float(s.strip()) for s in x0_str.split(',') if s.strip()]
+                except Exception:
+                    messagebox.showerror("Error", "Invalid initial estimation format")
+                    return
+
+                if len(x0) != len(var_names):
+                    messagebox.showerror("Error", "Initial estimation must match number of variables")
+                    return
+
+                # Call gradient descent
+                x_opt, history = gradient_descent_sympy(func_sympy, vars_syms, x0, lr=lr, max_iter=max_iter, tol=tol, verbose=False)
+                
+                # Compute objective values for visualization
+                func_eval = sp.lambdify(vars_syms, func_sympy, modules="numpy")
+                obj_vals = []
+                for xk, _ in history:
+                    try:
+                        if len(np.atleast_1d(xk)) == 1:
+                            fk = float(func_eval(float(xk)))
+                        else:
+                            fk = float(func_eval(*tuple(xk)))
+                        obj_vals.append(fk)
+                    except Exception:
+                        obj_vals.append(np.nan)
+                
+                # Format result
+                try:
+                    vals = [float(v) for v in x_opt]
+                    formatted = "[" + ", ".join(f"{v:.9g}" for v in vals) + "]"
+                    result_text = f"x* = {formatted}"
+                except Exception:
+                    result_text = f"x* = {list(x_opt)}"
+                
+                y_approx = None
+                real_func = None
 
             else:
                 messagebox.showinfo("Info", "Method not fully implemented yet.")
                 return
 
-            # Update polynomial display
+            # Update polynomial / result display
             self.poly_text.delete("1.0", tk.END)
-            self.poly_text.insert("1.0", f"P(x) = {result_text}")
+            if method == "Gradient Descent":
+                self.poly_text.insert("1.0", result_text)
+            else:
+                self.poly_text.insert("1.0", f"P(x) = {result_text}")
 
             # Update table
             for item in self.tree.get_children():
                 self.tree.delete(item)
 
-            x_eval = np.linspace(min(x_data)-0.5, max(x_data)+0.5, 10)
-            for i, xi in enumerate(x_eval):
-                yi_real = np.interp(xi, x_data, y_data) if method != "Chebyshev" else 0
-                yi_approx = y_approx(xi) if callable(y_approx) else float(y_approx(xi))
-                err = abs(yi_real - yi_approx)
-                self.tree.insert("", "end", values=(i, f"{xi:.4f}", f"{yi_real:.4f}", f"{yi_approx:.4f}", f"{err:.2e}"))
+            if method == "Gradient Descent":
+                # Show optimization history: iteration, x, grad_norm
+                for i, (xk, gn) in enumerate(history):
+                    xs = ",".join(f"{v:.6g}" for v in np.atleast_1d(xk))
+                    self.tree.insert("", "end", values=(i, xs, "", f"{gn:.3e}", ""))
+            else:
+                x_eval = np.linspace(min(x_data)-0.5, max(x_data)+0.5, 10)
+                for i, xi in enumerate(x_eval):
+                    if real_func is not None:
+                        try:
+                            yi_real = float(np.asarray(real_func(xi)).squeeze())
+                        except Exception:
+                            yi_real = float(np.interp(xi, x_data, y_data))
+                    else:
+                        yi_real = float(np.interp(xi, x_data, y_data))
+
+                    if callable(y_approx):
+                        try:
+                            yi_approx = float(np.asarray(y_approx(xi)).squeeze())
+                        except Exception:
+                            yi_approx = 0.0
+                    else:
+                        yi_approx = 0.0
+
+                    err = abs(yi_real - yi_approx)
+                    self.tree.insert("", "end", values=(i, f"{xi:.4f}", f"{yi_real:.4f}", f"{yi_approx:.4f}", f"{err:.2e}"))
 
             # Plot
-            self._plot_results(x_data, y_data, y_approx, method)
+            if method != "Gradient Descent":
+                self._plot_results(x_data, y_data, y_approx, method)
+            else:
+                self._plot_gradient_descent(history, obj_vals)
 
         except Exception as e:
             messagebox.showerror("Error", f"Execution failed:\n{str(e)}")
@@ -252,6 +373,44 @@ class Axe3Screen(tk.Tk):
         ax.legend()
         ax.grid(True)
 
+        canvas = FigureCanvasTkAgg(fig, self.graph_frame)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill="both", expand=True)
+
+    def _plot_gradient_descent(self, history, obj_vals):
+        """Plot gradient descent convergence: objective value & gradient norm vs iteration"""
+        # Clear previous plot
+        for widget in self.graph_frame.winfo_children():
+            widget.destroy()
+
+        fig = Figure(figsize=(7, 5), dpi=100)
+        ax1 = fig.add_subplot(111)
+        
+        # Extract gradient norms
+        grad_norms = [gn for _, gn in history]
+        iters = np.arange(len(history))
+        
+        # Plot objective value
+        ax1.semilogy(iters, obj_vals, 'b-o', linewidth=2, markersize=4, label='Objective Value f(x)')
+        ax1.set_xlabel("Iteration", fontsize=11)
+        ax1.set_ylabel("f(x)", fontsize=11, color='b')
+        ax1.tick_params(axis='y', labelcolor='b')
+        ax1.grid(True, alpha=0.3)
+        
+        # Add gradient norm on secondary axis
+        ax2 = ax1.twinx()
+        ax2.semilogy(iters, grad_norms, 'r--s', linewidth=2, markersize=4, label='||∇f(x)||')
+        ax2.set_ylabel("||∇f(x)||", fontsize=11, color='r')
+        ax2.tick_params(axis='y', labelcolor='r')
+        
+        ax1.set_title("Gradient Descent Convergence", fontsize=12, fontweight='bold')
+        
+        # Combined legend
+        lines1, labels1 = ax1.get_legend_handles_labels()
+        lines2, labels2 = ax2.get_legend_handles_labels()
+        ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper right')
+        
+        fig.tight_layout()
         canvas = FigureCanvasTkAgg(fig, self.graph_frame)
         canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True)

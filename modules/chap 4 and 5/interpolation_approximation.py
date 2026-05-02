@@ -109,9 +109,39 @@ def chebyshev_approximation(func, degree, a, b):
     }
 
 
+def gradient_descent_numpy(grad_fn, x0, lr=0.01, max_iter=1000, tol=1e-6, verbose=False):
+    x = np.asarray(x0, dtype=float)
+    history = []
+    for k in range(1, max_iter + 1):
+        g = np.asarray(grad_fn(x), dtype=float)
+        gn = np.linalg.norm(g)
+        history.append((x.copy(), gn))
+        
+        if verbose and (k % max(1, max_iter // 10) == 0 or gn <= tol):
+            print(f"iter={k}, ||∇f|| = {gn:.3e}")
+        
+        if gn <= tol:
+            break
+        
+        x = x - lr * g
+    
+    return x, history
+
+
+def gradient_descent_sympy(func_sympy, vars, x0, lr=0.01, max_iter=1000, tol=1e-6, verbose=False):
+    
+    vars = tuple(vars)
+    grad_exprs = [sp.diff(func_sympy, v) for v in vars]
+    grad_fn = sp.lambdify(vars, grad_exprs, modules="numpy")
+    def _grad_fn_numeric(x_arr):
+        return np.asarray(grad_fn(*tuple(x_arr)), dtype=float)
+
+    x_opt, history = gradient_descent_numpy(_grad_fn_numeric, x0, lr=lr, max_iter=max_iter, tol=tol, verbose=verbose)
+    return x_opt, history
+
+
 def run_tp4_visualizations():
     x = sp.symbols("x")
-
     x_pts = [0, 1, 5, 8]
     y_pts = [0, 3, 2, 2]
     p_lagrange, _ = lagrange_interpolation(x_pts, y_pts)
@@ -164,5 +194,7 @@ __all__ = [
     "newton_polynomial",
     "least_squares_polynomial",
     "chebyshev_approximation",
+    "gradient_descent_numpy",
+    "gradient_descent_sympy",
     "run_tp4_visualizations",
 ]
