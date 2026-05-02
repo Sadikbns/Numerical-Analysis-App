@@ -24,13 +24,13 @@ except ImportError as e:
 
 class Axe3Screen(tk.Tk):
     """
-    Axe 3 — Interpolation / Approximation with matplotlib table
+    Axe 3 — Interpolation / Approximation (Improved Input Handling)
     """
 
     def __init__(self):
         super().__init__()
         self.title("Axe 3 — Interpolation / Approximation")
-        self.geometry("1180x860")
+        self.geometry("1180x880")
         self.configure(bg="#f0f4f8")
         self._build()
 
@@ -54,7 +54,7 @@ class Axe3Screen(tk.Tk):
         tk.Label(bar, text="Axe 3 — Interpolation / Approximation",
                  bg="#8e44ad", fg="white", font=("Helvetica", 16, "bold")).pack(side="left", padx=10)
 
-    # ── Left Panel (unchanged) ───────────────────────────────────
+    # ── Left Panel ────────────────────────────────────────────────
     def _left_panel(self, parent):
         frame = tk.Frame(parent, bg="#f0f4f8")
         frame.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
@@ -70,11 +70,13 @@ class Axe3Screen(tk.Tk):
             tk.Radiobutton(inp, text=m, variable=self.method_var, value=m,
                            bg="#f0f4f8", command=self._update_inputs).pack(anchor="w")
 
+        # Data Points (used by Lagrange, Newton, Least Squares)
         tk.Label(inp, text="Data Points (x, y):", bg="#f0f4f8", font=("Helvetica", 10, "bold")).pack(anchor="w", pady=(8, 2))
         self.points_frame = tk.Frame(inp, bg="#f0f4f8")
         self.points_frame.pack(fill="x")
         self._build_points_input()
 
+        # Extra parameters (dynamic)
         self.extra_frame = tk.Frame(inp, bg="#f0f4f8")
         self.extra_frame.pack(fill="x", pady=8)
         self._update_inputs()
@@ -104,15 +106,22 @@ class Axe3Screen(tk.Tk):
         method = self.method_var.get()
 
         if method == "Least Squares":
-            tk.Label(self.extra_frame, text="Degree:", bg="#f0f4f8").pack(anchor="w")
+            tk.Label(self.extra_frame, text="Polynomial Degree:", bg="#f0f4f8").pack(anchor="w")
             self.degree_var = tk.IntVar(value=2)
             f = tk.Frame(self.extra_frame, bg="#f0f4f8")
             f.pack(anchor="w")
             for d in [1, 2, 3, 4]:
-                tk.Radiobutton(f, text=d, variable=self.degree_var, value=d, bg="#f0f4f8").pack(side="left", padx=10)
+                tk.Radiobutton(f, text=d, variable=self.degree_var, value=d, bg="#f0f4f8").pack(side="left", padx=12)
 
         elif method == "Chebyshev":
-            tk.Label(self.extra_frame, text="Interval [a, b]", bg="#f0f4f8").pack(anchor="w")
+            # Function input
+            tk.Label(self.extra_frame, text="Input Model f(x):", bg="#f0f4f8", font=("Helvetica", 10, "bold")).pack(anchor="w")
+            self.cheb_func_entry = tk.Entry(self.extra_frame, width=35, font=("Courier", 11))
+            self.cheb_func_entry.insert(0, "cos(x)")
+            self.cheb_func_entry.pack(anchor="w", pady=4)
+
+            # Interval
+            tk.Label(self.extra_frame, text="Interval [a, b]:", bg="#f0f4f8").pack(anchor="w")
             iv = tk.Frame(self.extra_frame, bg="#f0f4f8")
             iv.pack(anchor="w", pady=4)
             self.a_entry = tk.Entry(iv, width=6); self.a_entry.insert(0, "-1"); self.a_entry.pack(side="left")
@@ -125,8 +134,7 @@ class Axe3Screen(tk.Tk):
                 tk.Radiobutton(self.extra_frame, text=d, variable=self.cheb_degree, value=d, bg="#f0f4f8").pack(anchor="w")
 
         elif method == "Gradient Descent":
-            # (your existing GD inputs - kept unchanged)
-            tk.Label(self.extra_frame, text="Function f(vars):", bg="#f0f4f8", font=("Helvetica", 10, "bold")).pack(anchor="w", pady=(8, 2))
+            tk.Label(self.extra_frame, text="Input modele f(vars):", bg="#f0f4f8", font=("Helvetica", 10, "bold")).pack(anchor="w", pady=(8, 2))
             self.gd_func_entry = tk.Entry(self.extra_frame, width=40)
             self.gd_func_entry.insert(0, "(x-1)**2 + 2*(y+2)**2")
             self.gd_func_entry.pack(anchor="w", pady=2)
@@ -136,7 +144,7 @@ class Axe3Screen(tk.Tk):
             self.gd_vars_entry.insert(0, "x,y")
             self.gd_vars_entry.pack(anchor="w", pady=2)
 
-            tk.Label(self.extra_frame, text="Initial estimation x0 (comma-separated):", bg="#f0f4f8").pack(anchor="w", pady=(8, 2))
+            tk.Label(self.extra_frame, text="Initial estimation x0:", bg="#f0f4f8").pack(anchor="w", pady=(8, 2))
             self.gd_x0_entry = tk.Entry(self.extra_frame, width=20)
             self.gd_x0_entry.insert(0, "0,0")
             self.gd_x0_entry.pack(anchor="w", pady=2)
@@ -150,7 +158,7 @@ class Axe3Screen(tk.Tk):
             tk.Label(f2, text="tol:", bg="#f0f4f8").pack(side="left")
             self.gd_tol_entry = tk.Entry(f2, width=8); self.gd_tol_entry.insert(0, "1e-6"); self.gd_tol_entry.pack(side="left", padx=4)
 
-    # ── Right Panel with Graph + Matplotlib Table ───────────────
+    # ── Right Panel ───────────────────────────────────────────────
     def _right_panel(self, parent):
         frame = tk.Frame(parent, bg="#f0f4f8")
         frame.grid(row=0, column=1, sticky="nsew")
@@ -159,64 +167,62 @@ class Axe3Screen(tk.Tk):
                                           font=("Helvetica", 11, "bold"))
         self.result_frame.pack(fill="both", expand=True, padx=8, pady=8)
 
-        # Polynomial / Result
         poly_lf = tk.LabelFrame(self.result_frame, text="Result", bg="#f0f4f8", fg="#8e44ad")
         poly_lf.pack(fill="x", padx=8, pady=6)
         self.poly_text = tk.Text(poly_lf, height=4, font=("Courier", 10), bg="#f8f1ff")
         self.poly_text.pack(fill="x", padx=8, pady=6)
-
-
+        
     def _run_method(self):
         try:
-            # Get points
-            x_data = []
-            y_data = []
-            for xe, ye in self.point_entries:
-                if xe.get().strip() and ye.get().strip():
-                    x_data.append(float(xe.get()))
-                    y_data.append(float(ye.get()))
-
             method = self.method_var.get()
-            x = sp.symbols('x')
+
+            # Get data points (used by interpolation methods)
+            x_data = [float(xe.get()) for xe, ye in self.point_entries if xe.get().strip() and ye.get().strip()]
+            y_data = [float(ye.get()) for xe, ye in self.point_entries if xe.get().strip() and ye.get().strip()]
+
+            x_sym = sp.symbols('x')
             result_text = ""
             y_approx = None
             real_func = None
             history = []
             obj_vals = []
 
-            if method in ["Lagrange", "Newton", "Least Squares", "Chebyshev"] and len(x_data) < 2:
-                messagebox.showerror("Error", "Enter at least 2 points")
+            # Validation
+            if method in ["Lagrange", "Newton", "Least Squares"] and len(x_data) < 2:
+                messagebox.showerror("Error", "Please enter at least 2 points.")
                 return
 
             if method == "Lagrange":
                 poly, _ = lagrange_interpolation(x_data, y_data)
                 result_text = str(poly)
-                y_approx = sp.lambdify(x, poly, "numpy")
+                y_approx = sp.lambdify(x_sym, poly, "numpy")
 
             elif method == "Newton":
                 diff_table = newton_differences(x_data, y_data)
                 poly = newton_polynomial(x_data, diff_table)
                 result_text = str(poly)
-                y_approx = sp.lambdify(x, poly, "numpy")
+                y_approx = sp.lambdify(x_sym, poly, "numpy")
 
             elif method == "Least Squares":
                 degree = self.degree_var.get()
                 res = least_squares_polynomial(x_data, y_data, degree)
-                poly = res["poly_sympy"]
-                result_text = str(poly)
+                result_text = str(res["poly_sympy"])
                 y_approx = res["poly_numpy"]
 
             elif method == "Chebyshev":
+                func_str = self.cheb_func_entry.get()
                 a = float(self.a_entry.get())
                 b = float(self.b_entry.get())
                 deg = self.cheb_degree.get()
-                def f(t):
-                    return np.cos(np.asarray(t, dtype=float))
-                res = chebyshev_approximation(f, deg, a, b)
-                poly = res["poly_sympy"]
-                result_text = str(poly)
+
+                # Parse function
+                func_sym = sp.sympify(func_str)
+                f_np = sp.lambdify(x_sym, func_sym, "numpy")
+
+                res = chebyshev_approximation(f_np, deg, a, b)
+                result_text = str(res["poly_sympy"])
                 y_approx = res["evaluate"]
-                real_func = f
+                real_func = f_np
 
             elif method == "Gradient Descent":
                 func_str = self.gd_func_entry.get()
@@ -227,42 +233,28 @@ class Axe3Screen(tk.Tk):
                 tol = float(self.gd_tol_entry.get())
 
                 var_names = [s.strip() for s in vars_str.split(',') if s.strip()]
-                if len(var_names) == 0:
+                if not var_names:
                     messagebox.showerror("Error", "Enter at least one variable name")
                     return
+
                 vars_syms = sp.symbols(' '.join(var_names))
                 if len(var_names) == 1:
                     vars_syms = (vars_syms,)
 
                 local_dict = {n: v for n, v in zip(var_names, vars_syms)}
-                try:
-                    func_sympy = sp.sympify(func_str, locals=local_dict)
-                except Exception as e:
-                    messagebox.showerror("Error", f"Failed to parse function: {e}")
-                    return
+                func_sympy = sp.sympify(func_str, locals=local_dict)
 
-                try:
-                    x0 = [float(s.strip()) for s in x0_str.split(',') if s.strip()]
-                except Exception:
-                    messagebox.showerror("Error", "Invalid initial estimation format")
-                    return
-
+                x0 = [float(s.strip()) for s in x0_str.split(',') if s.strip()]
                 if len(x0) != len(var_names):
-                    messagebox.showerror("Error", "Initial estimation must match number of variables")
+                    messagebox.showerror("Error", "Initial guess must match number of variables")
                     return
 
                 x_opt, history = gradient_descent_sympy(
                     func_sympy, vars_syms, x0, lr=lr, max_iter=max_iter, tol=tol, verbose=False
                 )
-                
+
                 func_eval = sp.lambdify(vars_syms, func_sympy, modules="numpy")
-                obj_vals = []
-                for xk, _ in history:
-                    try:
-                        fk = float(func_eval(*np.atleast_1d(xk)))
-                        obj_vals.append(fk)
-                    except Exception:
-                        obj_vals.append(np.nan)
+                obj_vals = [float(func_eval(*np.atleast_1d(xk))) for xk, _ in history]
 
                 vals = [float(v) for v in np.atleast_1d(x_opt)]
                 result_text = f"x* = [{', '.join(f'{v:.8g}' for v in vals)}]"
@@ -270,18 +262,14 @@ class Axe3Screen(tk.Tk):
                 y_approx = None
                 real_func = None
 
-            else:
-                messagebox.showinfo("Info", "Method not fully implemented yet.")
-                return
-
-            # Update result text
+            # Update result display
             self.poly_text.delete("1.0", tk.END)
             if method == "Gradient Descent":
                 self.poly_text.insert("1.0", result_text)
             else:
                 self.poly_text.insert("1.0", f"P(x) = {result_text}")
 
-            # Plot
+            # Plot results
             if method == "Gradient Descent":
                 self._plot_gradient_descent(history, obj_vals)
             else:
@@ -289,7 +277,6 @@ class Axe3Screen(tk.Tk):
 
         except Exception as e:
             messagebox.showerror("Error", f"Execution failed:\n{str(e)}")
-
 
     def _create_plot_with_table(self, x_data, y_data, y_approx, method, real_func=None):
         """Combined Graph + Table using plt.table - FIXED"""
