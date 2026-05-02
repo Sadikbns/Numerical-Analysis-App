@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox
 import sys
 import os
 import numpy as np
@@ -24,19 +24,16 @@ except ImportError as e:
 
 class Axe3Screen(tk.Tk):
     """
-    Axe 3 — Interpolation / Approximation (Fully Integrated)
+    Axe 3 — Interpolation / Approximation with matplotlib table
     """
 
     def __init__(self):
         super().__init__()
         self.title("Axe 3 — Interpolation / Approximation")
-        self.geometry("1150x820")
+        self.geometry("1180x860")
         self.configure(bg="#f0f4f8")
-
-        self.canvas_widget = None  # for matplotlib
         self._build()
 
-    # ──────────────────────────────────────────────────────────────
     def _build(self):
         self._header()
         content = tk.Frame(self, bg="#f0f4f8")
@@ -57,12 +54,11 @@ class Axe3Screen(tk.Tk):
         tk.Label(bar, text="Axe 3 — Interpolation / Approximation",
                  bg="#8e44ad", fg="white", font=("Helvetica", 16, "bold")).pack(side="left", padx=10)
 
-    # ── Left Panel ────────────────────────────────────────────────
+    # ── Left Panel (unchanged) ───────────────────────────────────
     def _left_panel(self, parent):
         frame = tk.Frame(parent, bg="#f0f4f8")
         frame.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
 
-        # User Inputs
         inp = tk.LabelFrame(frame, text="User Inputs", bg="#f0f4f8", fg="#8e44ad",
                             font=("Helvetica", 11, "bold"), padx=10, pady=8)
         inp.pack(fill="x", pady=(0, 10))
@@ -74,18 +70,15 @@ class Axe3Screen(tk.Tk):
             tk.Radiobutton(inp, text=m, variable=self.method_var, value=m,
                            bg="#f0f4f8", command=self._update_inputs).pack(anchor="w")
 
-        # Points
         tk.Label(inp, text="Data Points (x, y):", bg="#f0f4f8", font=("Helvetica", 10, "bold")).pack(anchor="w", pady=(8, 2))
         self.points_frame = tk.Frame(inp, bg="#f0f4f8")
         self.points_frame.pack(fill="x")
         self._build_points_input()
 
-        # Extra params
         self.extra_frame = tk.Frame(inp, bg="#f0f4f8")
         self.extra_frame.pack(fill="x", pady=8)
         self._update_inputs()
 
-        # Run Button
         tk.Button(frame, text="▶  Run Method", bg="#8e44ad", fg="white",
                   font=("Helvetica", 12, "bold"), relief="flat", height=2,
                   command=self._run_method).pack(fill="x", pady=12)
@@ -132,6 +125,7 @@ class Axe3Screen(tk.Tk):
                 tk.Radiobutton(self.extra_frame, text=d, variable=self.cheb_degree, value=d, bg="#f0f4f8").pack(anchor="w")
 
         elif method == "Gradient Descent":
+            # (your existing GD inputs - kept unchanged)
             tk.Label(self.extra_frame, text="Function f(vars):", bg="#f0f4f8", font=("Helvetica", 10, "bold")).pack(anchor="w", pady=(8, 2))
             self.gd_func_entry = tk.Entry(self.extra_frame, width=40)
             self.gd_func_entry.insert(0, "(x-1)**2 + 2*(y+2)**2")
@@ -156,33 +150,22 @@ class Axe3Screen(tk.Tk):
             tk.Label(f2, text="tol:", bg="#f0f4f8").pack(side="left")
             self.gd_tol_entry = tk.Entry(f2, width=8); self.gd_tol_entry.insert(0, "1e-6"); self.gd_tol_entry.pack(side="left", padx=4)
 
-    # ── Right Panel ───────────────────────────────────────────────
+    # ── Right Panel with Graph + Matplotlib Table ───────────────
     def _right_panel(self, parent):
         frame = tk.Frame(parent, bg="#f0f4f8")
         frame.grid(row=0, column=1, sticky="nsew")
 
-        # Graph
-        self.graph_frame = tk.LabelFrame(frame, text="Visualization", bg="#f0f4f8", fg="#2c3e50",
-                                         font=("Helvetica", 11, "bold"))
-        self.graph_frame.pack(fill="both", expand=True, pady=(0, 8), padx=5)
+        self.result_frame = tk.LabelFrame(frame, text="Results", bg="#f0f4f8", fg="#2c3e50",
+                                          font=("Helvetica", 11, "bold"))
+        self.result_frame.pack(fill="both", expand=True, padx=8, pady=8)
 
-        # Polynomial
-        poly_lf = tk.LabelFrame(frame, text="Resulting Polynomial", bg="#f0f4f8", fg="#8e44ad")
+        # Polynomial / Result
+        poly_lf = tk.LabelFrame(self.result_frame, text="Result", bg="#f0f4f8", fg="#8e44ad")
         poly_lf.pack(fill="x", padx=8, pady=6)
-        self.poly_text = tk.Text(poly_lf, height=5, font=("Courier", 10), bg="#f8f1ff", wrap="word")
+        self.poly_text = tk.Text(poly_lf, height=4, font=("Courier", 10), bg="#f8f1ff")
         self.poly_text.pack(fill="x", padx=8, pady=6)
 
-        # Table
-        tbl_lf = tk.LabelFrame(frame, text="Evaluation Table", bg="#f0f4f8", fg="#2c3e50")
-        tbl_lf.pack(fill="both", expand=True, padx=8, pady=6)
-        cols = ("i", "x", "y_real", "y_approx", "error")
-        self.tree = ttk.Treeview(tbl_lf, columns=cols, show="headings", height=8)
-        for c, w in zip(cols, [40, 80, 100, 100, 100]):
-            self.tree.heading(c, text=c)
-            self.tree.column(c, width=w, anchor="center")
-        self.tree.pack(fill="both", expand=True, padx=6, pady=4)
 
-    # ── Main Execution ───────────────────────────────────────────
     def _run_method(self):
         try:
             # Get points
@@ -193,10 +176,6 @@ class Axe3Screen(tk.Tk):
                     x_data.append(float(xe.get()))
                     y_data.append(float(ye.get()))
 
-            if len(x_data) < 2:
-                messagebox.showerror("Error", "Enter at least 2 points")
-                return
-
             method = self.method_var.get()
             x = sp.symbols('x')
             result_text = ""
@@ -204,6 +183,10 @@ class Axe3Screen(tk.Tk):
             real_func = None
             history = []
             obj_vals = []
+
+            if method in ["Lagrange", "Newton", "Least Squares", "Chebyshev"] and len(x_data) < 2:
+                messagebox.showerror("Error", "Enter at least 2 points")
+                return
 
             if method == "Lagrange":
                 poly, _ = lagrange_interpolation(x_data, y_data)
@@ -227,7 +210,6 @@ class Axe3Screen(tk.Tk):
                 a = float(self.a_entry.get())
                 b = float(self.b_entry.get())
                 deg = self.cheb_degree.get()
-               
                 def f(t):
                     return np.cos(np.asarray(t, dtype=float))
                 res = chebyshev_approximation(f, deg, a, b)
@@ -237,7 +219,6 @@ class Axe3Screen(tk.Tk):
                 real_func = f
 
             elif method == "Gradient Descent":
-                # Read user inputs
                 func_str = self.gd_func_entry.get()
                 vars_str = self.gd_vars_entry.get()
                 x0_str = self.gd_x0_entry.get()
@@ -245,7 +226,6 @@ class Axe3Screen(tk.Tk):
                 max_iter = int(self.gd_max_iter_entry.get())
                 tol = float(self.gd_tol_entry.get())
 
-                # Parse variables
                 var_names = [s.strip() for s in vars_str.split(',') if s.strip()]
                 if len(var_names) == 0:
                     messagebox.showerror("Error", "Enter at least one variable name")
@@ -254,7 +234,6 @@ class Axe3Screen(tk.Tk):
                 if len(var_names) == 1:
                     vars_syms = (vars_syms,)
 
-                # Parse function
                 local_dict = {n: v for n, v in zip(var_names, vars_syms)}
                 try:
                     func_sympy = sp.sympify(func_str, locals=local_dict)
@@ -262,7 +241,6 @@ class Axe3Screen(tk.Tk):
                     messagebox.showerror("Error", f"Failed to parse function: {e}")
                     return
 
-                # Parse initial estimation
                 try:
                     x0 = [float(s.strip()) for s in x0_str.split(',') if s.strip()]
                 except Exception:
@@ -273,30 +251,22 @@ class Axe3Screen(tk.Tk):
                     messagebox.showerror("Error", "Initial estimation must match number of variables")
                     return
 
-                # Call gradient descent
-                x_opt, history = gradient_descent_sympy(func_sympy, vars_syms, x0, lr=lr, max_iter=max_iter, tol=tol, verbose=False)
+                x_opt, history = gradient_descent_sympy(
+                    func_sympy, vars_syms, x0, lr=lr, max_iter=max_iter, tol=tol, verbose=False
+                )
                 
-                # Compute objective values for visualization
                 func_eval = sp.lambdify(vars_syms, func_sympy, modules="numpy")
                 obj_vals = []
                 for xk, _ in history:
                     try:
-                        if len(np.atleast_1d(xk)) == 1:
-                            fk = float(func_eval(float(xk)))
-                        else:
-                            fk = float(func_eval(*tuple(xk)))
+                        fk = float(func_eval(*np.atleast_1d(xk)))
                         obj_vals.append(fk)
                     except Exception:
                         obj_vals.append(np.nan)
-                
-                # Format result
-                try:
-                    vals = [float(v) for v in x_opt]
-                    formatted = "[" + ", ".join(f"{v:.9g}" for v in vals) + "]"
-                    result_text = f"x* = {formatted}"
-                except Exception:
-                    result_text = f"x* = {list(x_opt)}"
-                
+
+                vals = [float(v) for v in np.atleast_1d(x_opt)]
+                result_text = f"x* = [{', '.join(f'{v:.8g}' for v in vals)}]"
+
                 y_approx = None
                 real_func = None
 
@@ -304,117 +274,96 @@ class Axe3Screen(tk.Tk):
                 messagebox.showinfo("Info", "Method not fully implemented yet.")
                 return
 
-            # Update polynomial / result display
+            # Update result text
             self.poly_text.delete("1.0", tk.END)
             if method == "Gradient Descent":
                 self.poly_text.insert("1.0", result_text)
             else:
                 self.poly_text.insert("1.0", f"P(x) = {result_text}")
 
-            # Update table
-            for item in self.tree.get_children():
-                self.tree.delete(item)
-
-            if method == "Gradient Descent":
-                # Show optimization history: iteration, x, grad_norm
-                for i, (xk, gn) in enumerate(history):
-                    xs = ",".join(f"{v:.6g}" for v in np.atleast_1d(xk))
-                    self.tree.insert("", "end", values=(i, xs, "", f"{gn:.3e}", ""))
-            else:
-                x_eval = np.linspace(min(x_data)-0.5, max(x_data)+0.5, 10)
-                for i, xi in enumerate(x_eval):
-                    if real_func is not None:
-                        try:
-                            yi_real = float(np.asarray(real_func(xi)).squeeze())
-                        except Exception:
-                            yi_real = float(np.interp(xi, x_data, y_data))
-                    else:
-                        yi_real = float(np.interp(xi, x_data, y_data))
-
-                    if callable(y_approx):
-                        try:
-                            yi_approx = float(np.asarray(y_approx(xi)).squeeze())
-                        except Exception:
-                            yi_approx = 0.0
-                    else:
-                        yi_approx = 0.0
-
-                    err = abs(yi_real - yi_approx)
-                    self.tree.insert("", "end", values=(i, f"{xi:.4f}", f"{yi_real:.4f}", f"{yi_approx:.4f}", f"{err:.2e}"))
-
             # Plot
-            if method != "Gradient Descent":
-                self._plot_results(x_data, y_data, y_approx, method)
-            else:
+            if method == "Gradient Descent":
                 self._plot_gradient_descent(history, obj_vals)
+            else:
+                self._create_plot_with_table(x_data, y_data, y_approx, method, real_func)
 
         except Exception as e:
             messagebox.showerror("Error", f"Execution failed:\n{str(e)}")
 
-    def _plot_results(self, x_data, y_data, y_approx, method):
-        # Clear previous plot
-        for widget in self.graph_frame.winfo_children():
-            widget.destroy()
 
-        fig = Figure(figsize=(7, 5), dpi=100)
-        ax = fig.add_subplot(111)
-        ax.scatter(x_data, y_data, color='red', s=60, label='Data Points', zorder=5)
+    def _create_plot_with_table(self, x_data, y_data, y_approx, method, real_func=None):
+        """Combined Graph + Table using plt.table - FIXED"""
+        # Clear only plot canvases, keep poly_text and LabelFrames
+        for widget in list(self.result_frame.winfo_children()):
+            if isinstance(widget, tk.Canvas) or "FigureCanvas" in str(type(widget)):
+                widget.destroy()
 
-        x_plot = np.linspace(min(x_data)-1, max(x_data)+1, 300)
-        if callable(y_approx):
-            y_plot = y_approx(x_plot)
-        else:
-            y_plot = y_approx(x_plot) if hasattr(y_approx, '__call__') else [0]*len(x_plot)
+        fig = Figure(figsize=(10, 8), dpi=105)
+        gs = fig.add_gridspec(3, 1, height_ratios=[4, 0.4, 2.5])
 
-        ax.plot(x_plot, y_plot, 'b-', label=f'{self.method_var.get()} Approximation')
-        ax.set_title(f"{method} Interpolation / Approximation")
-        ax.set_xlabel("x")
-        ax.set_ylabel("y")
+        # Plot
+        ax = fig.add_subplot(gs[0])
+        ax.scatter(x_data, y_data, color='red', s=70, label='Data Points', zorder=5)
+
+        x_plot = np.linspace(min(x_data)-1, max(x_data)+1, 400)
+        y_plot = np.array([y_approx(xi) for xi in x_plot]) if callable(y_approx) else y_approx(x_plot)
+
+        ax.plot(x_plot, y_plot, 'b-', linewidth=2.5, label=f'{method} Approximation')
+        ax.set_title(f"{method} Approximation")
         ax.legend()
         ax.grid(True)
 
-        canvas = FigureCanvasTkAgg(fig, self.graph_frame)
+        # Table
+        ax_table = fig.add_subplot(gs[2])
+        ax_table.axis('off')
+
+        x_eval = np.linspace(min(x_data), max(x_data), 8)
+        table_data = []
+        for i, xi in enumerate(x_eval):
+            yi_real = float(np.interp(xi, x_data, y_data)) if real_func is None else float(real_func(xi))
+            yi_approx = float(y_approx(xi))
+            err = abs(yi_real - yi_approx)
+            table_data.append([f"{i}", f"{xi:.4f}", f"{yi_real:.4f}", f"{yi_approx:.4f}", f"{err:.2e}"])
+
+        table = ax_table.table(cellText=table_data,
+                               colLabels=["i", "x", "y_real", "y_approx", "Error"],
+                               cellLoc='center', loc='center')
+        table.auto_set_font_size(False)
+        table.set_fontsize(9.5)
+        table.scale(1.3, 2.0)
+
+        canvas = FigureCanvasTkAgg(fig, self.result_frame)
         canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True)
+
 
     def _plot_gradient_descent(self, history, obj_vals):
-        """Plot gradient descent convergence: objective value & gradient norm vs iteration"""
-        # Clear previous plot
-        for widget in self.graph_frame.winfo_children():
-            widget.destroy()
+        """Gradient Descent Plot"""
+        for widget in list(self.result_frame.winfo_children()):
+            if isinstance(widget, tk.Canvas) or "FigureCanvas" in str(type(widget)):
+                widget.destroy()
 
-        fig = Figure(figsize=(7, 5), dpi=100)
+        fig = Figure(figsize=(9, 7), dpi=100)
         ax1 = fig.add_subplot(111)
-        
-        # Extract gradient norms
-        grad_norms = [gn for _, gn in history]
         iters = np.arange(len(history))
-        
-        # Plot objective value
-        ax1.semilogy(iters, obj_vals, 'b-o', linewidth=2, markersize=4, label='Objective Value f(x)')
-        ax1.set_xlabel("Iteration", fontsize=11)
-        ax1.set_ylabel("f(x)", fontsize=11, color='b')
-        ax1.tick_params(axis='y', labelcolor='b')
+        grad_norms = [gn for _, gn in history]
+
+        ax1.semilogy(iters, obj_vals, 'b-o', label='f(x)')
+        ax1.set_xlabel("Iteration")
+        ax1.set_ylabel("Objective Value", color='b')
         ax1.grid(True, alpha=0.3)
-        
-        # Add gradient norm on secondary axis
+
         ax2 = ax1.twinx()
-        ax2.semilogy(iters, grad_norms, 'r--s', linewidth=2, markersize=4, label='||∇f(x)||')
-        ax2.set_ylabel("||∇f(x)||", fontsize=11, color='r')
-        ax2.tick_params(axis='y', labelcolor='r')
-        
-        ax1.set_title("Gradient Descent Convergence", fontsize=12, fontweight='bold')
-        
-        # Combined legend
-        lines1, labels1 = ax1.get_legend_handles_labels()
-        lines2, labels2 = ax2.get_legend_handles_labels()
-        ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper right')
-        
+        ax2.semilogy(iters, grad_norms, 'r--s', label='||∇f||')
+        ax2.set_ylabel("Gradient Norm", color='r')
+
+        ax1.set_title("Gradient Descent Convergence")
         fig.tight_layout()
-        canvas = FigureCanvasTkAgg(fig, self.graph_frame)
+
+        canvas = FigureCanvasTkAgg(fig, self.result_frame)
         canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True)
-
+    
     def _back(self):
         import subprocess
         path = os.path.join(os.path.dirname(__file__), "main_screen.py")
