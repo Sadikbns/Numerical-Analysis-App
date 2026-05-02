@@ -24,7 +24,7 @@ except ImportError as e:
 
 class Axe3Screen(tk.Tk):
     """
-    Axe 3 — Interpolation / Approximation (Improved Input Handling)
+    Axe 3 — Interpolation / Approximation (Updated Input Logic)
     """
 
     def __init__(self):
@@ -70,13 +70,13 @@ class Axe3Screen(tk.Tk):
             tk.Radiobutton(inp, text=m, variable=self.method_var, value=m,
                            bg="#f0f4f8", command=self._update_inputs).pack(anchor="w")
 
-        # Data Points (used by Lagrange, Newton, Least Squares)
+        # Data Points
         tk.Label(inp, text="Data Points (x, y):", bg="#f0f4f8", font=("Helvetica", 10, "bold")).pack(anchor="w", pady=(8, 2))
         self.points_frame = tk.Frame(inp, bg="#f0f4f8")
         self.points_frame.pack(fill="x")
         self._build_points_input()
 
-        # Extra parameters (dynamic)
+        # Dynamic extra inputs
         self.extra_frame = tk.Frame(inp, bg="#f0f4f8")
         self.extra_frame.pack(fill="x", pady=8)
         self._update_inputs()
@@ -106,6 +106,12 @@ class Axe3Screen(tk.Tk):
         method = self.method_var.get()
 
         if method == "Least Squares":
+            # Function + Degree
+            tk.Label(self.extra_frame, text="Input model f(x) :", bg="#f0f4f8", font=("Helvetica", 10, "bold")).pack(anchor="w")
+            self.ls_func_entry = tk.Entry(self.extra_frame, width=35, font=("Courier", 11))
+            self.ls_func_entry.insert(0, "cos(x)")
+            self.ls_func_entry.pack(anchor="w", pady=4)
+
             tk.Label(self.extra_frame, text="Polynomial Degree:", bg="#f0f4f8").pack(anchor="w")
             self.degree_var = tk.IntVar(value=2)
             f = tk.Frame(self.extra_frame, bg="#f0f4f8")
@@ -114,13 +120,6 @@ class Axe3Screen(tk.Tk):
                 tk.Radiobutton(f, text=d, variable=self.degree_var, value=d, bg="#f0f4f8").pack(side="left", padx=12)
 
         elif method == "Chebyshev":
-            # Function input
-            tk.Label(self.extra_frame, text="Input Model f(x):", bg="#f0f4f8", font=("Helvetica", 10, "bold")).pack(anchor="w")
-            self.cheb_func_entry = tk.Entry(self.extra_frame, width=35, font=("Courier", 11))
-            self.cheb_func_entry.insert(0, "cos(x)")
-            self.cheb_func_entry.pack(anchor="w", pady=4)
-
-            # Interval
             tk.Label(self.extra_frame, text="Interval [a, b]:", bg="#f0f4f8").pack(anchor="w")
             iv = tk.Frame(self.extra_frame, bg="#f0f4f8")
             iv.pack(anchor="w", pady=4)
@@ -134,7 +133,7 @@ class Axe3Screen(tk.Tk):
                 tk.Radiobutton(self.extra_frame, text=d, variable=self.cheb_degree, value=d, bg="#f0f4f8").pack(anchor="w")
 
         elif method == "Gradient Descent":
-            tk.Label(self.extra_frame, text="Input modele f(vars):", bg="#f0f4f8", font=("Helvetica", 10, "bold")).pack(anchor="w", pady=(8, 2))
+            tk.Label(self.extra_frame, text="Input model:", bg="#f0f4f8", font=("Helvetica", 10, "bold")).pack(anchor="w", pady=(8, 2))
             self.gd_func_entry = tk.Entry(self.extra_frame, width=40)
             self.gd_func_entry.insert(0, "(x-1)**2 + 2*(y+2)**2")
             self.gd_func_entry.pack(anchor="w", pady=2)
@@ -144,7 +143,7 @@ class Axe3Screen(tk.Tk):
             self.gd_vars_entry.insert(0, "x,y")
             self.gd_vars_entry.pack(anchor="w", pady=2)
 
-            tk.Label(self.extra_frame, text="Initial estimation x0:", bg="#f0f4f8").pack(anchor="w", pady=(8, 2))
+            tk.Label(self.extra_frame, text="Initial estimation x0 (comma-separated):", bg="#f0f4f8").pack(anchor="w", pady=(8, 2))
             self.gd_x0_entry = tk.Entry(self.extra_frame, width=20)
             self.gd_x0_entry.insert(0, "0,0")
             self.gd_x0_entry.pack(anchor="w", pady=2)
@@ -171,12 +170,13 @@ class Axe3Screen(tk.Tk):
         poly_lf.pack(fill="x", padx=8, pady=6)
         self.poly_text = tk.Text(poly_lf, height=4, font=("Courier", 10), bg="#f8f1ff")
         self.poly_text.pack(fill="x", padx=8, pady=6)
-        
+
+    # ── Run Method ────────────────────────────────────────────────
     def _run_method(self):
         try:
             method = self.method_var.get()
 
-            # Get data points (used by interpolation methods)
+            # Get data points
             x_data = [float(xe.get()) for xe, ye in self.point_entries if xe.get().strip() and ye.get().strip()]
             y_data = [float(ye.get()) for xe, ye in self.point_entries if xe.get().strip() and ye.get().strip()]
 
@@ -187,7 +187,6 @@ class Axe3Screen(tk.Tk):
             history = []
             obj_vals = []
 
-            # Validation
             if method in ["Lagrange", "Newton", "Least Squares"] and len(x_data) < 2:
                 messagebox.showerror("Error", "Please enter at least 2 points.")
                 return
@@ -205,24 +204,27 @@ class Axe3Screen(tk.Tk):
 
             elif method == "Least Squares":
                 degree = self.degree_var.get()
+                func_str = self.ls_func_entry.get()   # Function for evaluation
+
+                # Parse function for real values
+                func_sym = sp.sympify(func_str)
+                real_func = sp.lambdify(x_sym, func_sym, "numpy")
+
                 res = least_squares_polynomial(x_data, y_data, degree)
                 result_text = str(res["poly_sympy"])
                 y_approx = res["poly_numpy"]
 
             elif method == "Chebyshev":
-                func_str = self.cheb_func_entry.get()
                 a = float(self.a_entry.get())
                 b = float(self.b_entry.get())
                 deg = self.cheb_degree.get()
-
-                # Parse function
-                func_sym = sp.sympify(func_str)
-                f_np = sp.lambdify(x_sym, func_sym, "numpy")
-
-                res = chebyshev_approximation(f_np, deg, a, b)
+                
+                def f(t):
+                    return np.cos(np.asarray(t, dtype=float))  # default function
+                res = chebyshev_approximation(f, deg, a, b)
                 result_text = str(res["poly_sympy"])
                 y_approx = res["evaluate"]
-                real_func = f_np
+                real_func = f
 
             elif method == "Gradient Descent":
                 func_str = self.gd_func_entry.get()
@@ -246,15 +248,21 @@ class Axe3Screen(tk.Tk):
 
                 x0 = [float(s.strip()) for s in x0_str.split(',') if s.strip()]
                 if len(x0) != len(var_names):
-                    messagebox.showerror("Error", "Initial guess must match number of variables")
+                    messagebox.showerror("Error", "Initial estimation must match number of variables")
                     return
 
                 x_opt, history = gradient_descent_sympy(
                     func_sympy, vars_syms, x0, lr=lr, max_iter=max_iter, tol=tol, verbose=False
                 )
-
+                
                 func_eval = sp.lambdify(vars_syms, func_sympy, modules="numpy")
-                obj_vals = [float(func_eval(*np.atleast_1d(xk))) for xk, _ in history]
+                obj_vals = []
+                for xk, _ in history:
+                    try:
+                        fk = float(func_eval(*np.atleast_1d(xk)))
+                        obj_vals.append(fk)
+                    except Exception:
+                        obj_vals.append(np.nan)
 
                 vals = [float(v) for v in np.atleast_1d(x_opt)]
                 result_text = f"x* = [{', '.join(f'{v:.8g}' for v in vals)}]"
@@ -262,14 +270,14 @@ class Axe3Screen(tk.Tk):
                 y_approx = None
                 real_func = None
 
-            # Update result display
+            # Update result text
             self.poly_text.delete("1.0", tk.END)
             if method == "Gradient Descent":
                 self.poly_text.insert("1.0", result_text)
             else:
                 self.poly_text.insert("1.0", f"P(x) = {result_text}")
 
-            # Plot results
+            # Plot
             if method == "Gradient Descent":
                 self._plot_gradient_descent(history, obj_vals)
             else:
@@ -350,7 +358,7 @@ class Axe3Screen(tk.Tk):
         canvas = FigureCanvasTkAgg(fig, self.result_frame)
         canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True)
-    
+
     def _back(self):
         import subprocess
         path = os.path.join(os.path.dirname(__file__), "main_screen.py")
