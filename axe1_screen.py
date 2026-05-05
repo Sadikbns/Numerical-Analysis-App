@@ -1,15 +1,11 @@
-"""
-Axe 1 — Function Analysis
-Pure Python / Tkinter — aucune dependance externe (pas de matplotlib, pas de ttk).
-Graphe dessine sur tk.Canvas. Tableau fait main avec Canvas + scrollbar.
-"""
-import tkinter as tk
 import importlib.util
-import os
 import math
+import os
+import tkinter as tk
+from tkinter import filedialog, messagebox
+
 import numpy as np
 
-# ── Palette ───────────────────────────────────────────────────────────────────
 C = {
     "bg":          "#f0f4f8",
     "surface":     "#ffffff",
@@ -38,7 +34,6 @@ C = {
     "row_last_fg": "#1a5c38",
 }
 
-# ── Module nonlinear ──────────────────────────────────────────────────────────
 _mod_path = os.path.join(os.path.dirname(__file__),
                           "modules", "chap 1", "nonlinear_resolution.py")
 _spec = importlib.util.spec_from_file_location("nonlinear_resolution", _mod_path)
@@ -57,11 +52,23 @@ ALGO_TAG = {
     "Newton":     "Tangente",
 }
 
-ROW_H = 22   # hauteur d'une ligne du tableau
-COL_W = 100  # largeur colonne par defaut
+ROW_H = 22
+SAFE_FUNCTIONS = {
+    "np": np,
+    "math": math,
+    "sin": np.sin,
+    "cos": np.cos,
+    "tan": np.tan,
+    "exp": np.exp,
+    "log": np.log,
+    "log10": np.log10,
+    "sqrt": np.sqrt,
+    "abs": np.abs,
+    "pi": math.pi,
+    "e": math.e,
+}
 
 
-# ── Helpers bas niveau ────────────────────────────────────────────────────────
 def _sep(parent, vertical=False, **kw):
     if vertical:
         return tk.Frame(parent, bg=C["border"], width=1, **kw)
@@ -96,7 +103,6 @@ def _btn(parent, text, bg, fg="white", cmd=None, pad_x=10, pad_y=4,
                   padx=pad_x, pady=pad_y,
                   activebackground=bg, activeforeground=fg,
                   command=cmd or (lambda: None), **kw)
-    # hover leger
     darker = _darken(bg)
     b.bind("<Enter>", lambda e, d=darker: b.config(bg=d))
     b.bind("<Leave>", lambda e: b.config(bg=bg))
@@ -115,7 +121,6 @@ def _darken(hex_color):
         return hex_color
 
 
-# ── Card (frame avec header colore) ──────────────────────────────────────────
 def _card(parent, title, dot=None):
     outer = tk.Frame(parent, bg=C["border"], bd=0)
     inner = tk.Frame(outer, bg=C["surface"])
@@ -135,7 +140,6 @@ def _card(parent, title, dot=None):
     return outer, body, inner
 
 
-# ── GraphCanvas — dessin vectoriel pur tkinter ────────────────────────────────
 class GraphCanvas(tk.Canvas):
     """Canvas qui trace f(x) avec axes, grille et racine."""
 
@@ -163,7 +167,6 @@ class GraphCanvas(tk.Canvas):
         self.update_idletasks()
         w = self.winfo_width() or 400
         h = self.winfo_height() or 180
-        # grille pointillee
         for xi in range(0, w, 40):
             self.create_line(xi, 0, xi, h, fill="#ececec", dash=(2, 4))
         for yi in range(0, h, 30):
@@ -194,7 +197,6 @@ class GraphCanvas(tk.Canvas):
         pw = px_right - px_left
         ph = px_bottom - px_top
 
-        # Plage Y avec marge
         valid = np.isfinite(ys)
         if not np.any(valid):
             self._draw_empty()
@@ -202,7 +204,8 @@ class GraphCanvas(tk.Canvas):
         y_min = float(np.min(ys[valid]))
         y_max = float(np.max(ys[valid]))
         pad_y = max((y_max - y_min) * 0.12, 1e-9)
-        y_min -= pad_y; y_max += pad_y
+        y_min -= pad_y
+        y_max += pad_y
 
         x_min = float(xs[0])
         x_max = float(xs[-1])
@@ -214,7 +217,6 @@ class GraphCanvas(tk.Canvas):
             py = px_bottom - (yv - y_min) / (y_max - y_min) * ph
             return px, py
 
-        # ─ Grille ─
         def nice_step(span, n=5):
             raw = span / n
             mag = 10 ** math.floor(math.log10(abs(raw) + 1e-12))
@@ -238,17 +240,14 @@ class GraphCanvas(tk.Canvas):
                              fill=C["text_muted"], font=("Helvetica", 7),
                              anchor="e")
 
-        # ─ Cadre ─
         self.create_rectangle(px_left, px_top, px_right, px_bottom,
                                outline=C["border"], width=1)
 
-        # ─ Axe X (y=0) ─
         if y_min < 0 < y_max:
             _, py0 = to_px(x_min, 0)
             self.create_line(px_left, py0, px_right, py0,
                              fill="#aaaaaa", width=1)
 
-        # ─ Lignes a et b ─
         for xv, col, lbl in [(a, C["red"], f"a={a:g}"),
                                (b, C["blue"], f"b={b:g}")]:
             if x_min <= xv <= x_max:
@@ -258,7 +257,6 @@ class GraphCanvas(tk.Canvas):
                 self.create_text(px + 3, px_top + 4, text=lbl,
                                  fill=col, font=("Helvetica", 8), anchor="w")
 
-        # ─ Courbe f(x) — segments ─
         pts = []
         for xv, yv in zip(xs, ys):
             if math.isfinite(yv):
@@ -267,11 +265,10 @@ class GraphCanvas(tk.Canvas):
         if len(pts) >= 2:
             flat = []
             for px_, py_ in pts:
-                flat += [px_, py_]
+                flat.extend((px_, py_))
             self.create_line(flat, fill=C["primary_mid"],
                              width=2.5, smooth=True, joinstyle="round")
 
-        # ─ Racine ─
         if root is not None and x_min <= root <= x_max:
             prx, _ = to_px(root, y_min)
             self.create_line(prx, px_top, prx, px_bottom,
@@ -297,7 +294,6 @@ class GraphCanvas(tk.Canvas):
         return vals
 
 
-# ── TableCanvas — tableau scrollable sans ttk ─────────────────────────────────
 class TableCanvas(tk.Frame):
     """Tableau fait sur Canvas avec scrollbar verticale, sans ttk.Treeview."""
 
@@ -309,12 +305,10 @@ class TableCanvas(tk.Frame):
         self._cols = []
         self._rows_data = []
 
-        # Header fixe
         self._hdr_canvas = tk.Canvas(self, bg=C["hdr_bg"],
                                       highlightthickness=0, height=ROW_H + 4)
         self._hdr_canvas.grid(row=0, column=0, sticky="ew")
 
-        # Corps scrollable
         self._body_canvas = tk.Canvas(self, bg=C["surface"],
                                        highlightthickness=0)
         self._body_canvas.grid(row=1, column=0, sticky="nsew")
@@ -350,7 +344,6 @@ class TableCanvas(tk.Frame):
         cw = self._col_width()
         W = cw * len(self._cols)
 
-        # ─ Header ─
         self._hdr_canvas.delete("all")
         self._hdr_canvas.config(width=W)
         for ci, col in enumerate(self._cols):
@@ -363,7 +356,6 @@ class TableCanvas(tk.Frame):
                 text=col, fill=C["text"],
                 font=("Helvetica", 9, "bold"))
 
-        # ─ Corps ─
         self._body_canvas.delete("all")
         total_h = ROW_H * len(self._rows_data)
         self._body_canvas.config(scrollregion=(0, 0, W, total_h))
@@ -388,7 +380,6 @@ class TableCanvas(tk.Frame):
                     font=("Courier", 9, "bold" if is_last else "normal"))
 
 
-# ── Ecran principal ───────────────────────────────────────────────────────────
 class Axe1Screen(tk.Tk):
 
     def __init__(self):
@@ -400,11 +391,10 @@ class Axe1Screen(tk.Tk):
 
         self._last_table_data = []
         self._last_table_cols = []
-        self._graph_data = None   # (xs, ys, a, b, root)
+        self._graph_data = None
 
         self._build()
 
-    # ── Layout ───────────────────────────────────────────────────────────────
     def _build(self):
         self._build_header()
         content = tk.Frame(self, bg=C["bg"])
@@ -415,7 +405,6 @@ class Axe1Screen(tk.Tk):
         self._build_left(content)
         self._build_right(content)
 
-    # ── Header ────────────────────────────────────────────────────────────────
     def _build_header(self):
         bar = tk.Frame(self, bg=C["primary"], height=52)
         bar.pack(fill="x")
@@ -435,12 +424,10 @@ class Axe1Screen(tk.Tk):
                                font=("Helvetica", 9), padx=12, pady=4)
         self._pill.pack(side="right", padx=14)
 
-    # ── Left panel ───────────────────────────────────────────────────────────
     def _build_left(self, parent):
         outer = tk.Frame(parent, bg=C["bg"])
         outer.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
 
-        # ─ Card Inputs ─
         card, body, _ = _card(outer, "  Entrees", dot=C["primary_mid"])
         card.pack(fill="x", pady=(0, 8))
 
@@ -448,9 +435,6 @@ class Axe1Screen(tk.Tk):
         self.func_entry = _entry(body, "x**3 - x - 2", mono=True)
         self.func_entry.pack(fill="x", pady=(2, 6))
 
-        # Raccourcis fonctions
-        shortcuts = tk.Frame(body, bg=C["surface"])
-        shortcuts.pack(fill="x", pady=(0, 8))
         _lbl(body, "Exemples :", size=9,
              color=C["text_muted"]).pack(anchor="w")
         sc_row = tk.Frame(body, bg=C["surface"])
@@ -479,7 +463,6 @@ class Axe1Screen(tk.Tk):
         self.tol_entry = _entry(body, "1e-6", width=14, mono=True)
         self.tol_entry.pack(anchor="w", pady=(2, 0))
 
-        # x0 — cache jusqu'a besoin
         self.x0_outer = tk.Frame(body, bg="#fffbeb",
                                   highlightthickness=1,
                                   highlightbackground="#f0c040")
@@ -490,7 +473,6 @@ class Axe1Screen(tk.Tk):
         self.x0_entry.config(bg="#fffdef")
         self.x0_entry.pack(anchor="w", padx=8, pady=(2, 6))
 
-        # ─ Card Algorithme ─
         card2, body2, _ = _card(outer, "  Algorithme", dot=C["primary_mid"])
         card2.pack(fill="x", pady=(0, 8))
 
@@ -510,7 +492,6 @@ class Axe1Screen(tk.Tk):
                                font=("Helvetica", 8), padx=6, pady=1)
             tag_lbl.pack(side="right")
 
-        # ─ Card Actions ─
         card3, body3, _ = _card(outer, "  Analyser f(x)", dot=C["blue"])
         card3.pack(fill="x", pady=(0, 8))
 
@@ -522,7 +503,6 @@ class Axe1Screen(tk.Tk):
         ]:
             self._action_row(body3, icon, label, badge, cmd)
 
-        # ─ Bouton Run ─
         run_frame = tk.Frame(outer, bg=C["bg"])
         run_frame.pack(fill="x", pady=(0, 6))
         self._run_btn = _btn(run_frame, "  Lancer l'algorithme",
@@ -531,7 +511,6 @@ class Axe1Screen(tk.Tk):
                               cmd=self._run_algorithm)
         self._run_btn.pack(fill="x")
 
-        # ─ Barre de resultat/info ─
         self._result_outer = tk.Frame(outer, bg=C["primary_lt"],
                                        highlightthickness=1,
                                        highlightbackground="#a8d5b5")
@@ -571,7 +550,6 @@ class Axe1Screen(tk.Tk):
             tk.Label(row, text=badge, bg="#fff3cd", fg="#856404",
                      font=("Helvetica", 8), padx=5, pady=1).pack(side="right")
 
-    # ── Right panel ───────────────────────────────────────────────────────────
     def _build_right(self, parent):
         outer = tk.Frame(parent, bg=C["bg"])
         outer.grid(row=0, column=1, sticky="nsew")
@@ -579,7 +557,6 @@ class Axe1Screen(tk.Tk):
         outer.rowconfigure(1, weight=3)
         outer.columnconfigure(0, weight=1)
 
-        # ─ Carte Graphe ─
         graph_card = tk.Frame(outer, bg=C["border"])
         graph_card.grid(row=0, column=0, sticky="nsew", pady=(0, 8))
         inner_g = tk.Frame(graph_card, bg=C["surface"])
@@ -587,7 +564,6 @@ class Axe1Screen(tk.Tk):
         inner_g.rowconfigure(2, weight=1)
         inner_g.columnconfigure(0, weight=1)
 
-        # Header graphe
         ghdr = tk.Frame(inner_g, bg=C["hdr_bg"], height=30)
         ghdr.grid(row=0, column=0, sticky="ew")
         ghdr.grid_propagate(False)
@@ -608,7 +584,6 @@ class Axe1Screen(tk.Tk):
         self._graph = GraphCanvas(inner_g)
         self._graph.grid(row=2, column=0, sticky="nsew", padx=8, pady=6)
 
-        # Barre stats
         _sep(inner_g).grid(row=3, column=0, sticky="ew")
         stats_bar = tk.Frame(inner_g, bg=C["hdr_bg"])
         stats_bar.grid(row=4, column=0, sticky="ew")
@@ -632,7 +607,6 @@ class Axe1Screen(tk.Tk):
                      fg=C["text_muted"],
                      font=("Helvetica", 8)).pack()
 
-        # ─ Carte Tableau ─
         tbl_card = tk.Frame(outer, bg=C["border"])
         tbl_card.grid(row=1, column=0, sticky="nsew")
         inner_t = tk.Frame(tbl_card, bg=C["surface"])
@@ -640,7 +614,6 @@ class Axe1Screen(tk.Tk):
         inner_t.rowconfigure(2, weight=1)
         inner_t.columnconfigure(0, weight=1)
 
-        # Header tableau
         thdr = tk.Frame(inner_t, bg=C["hdr_bg"], height=30)
         thdr.grid(row=0, column=0, sticky="ew")
         thdr.grid_propagate(False)
@@ -665,7 +638,6 @@ class Axe1Screen(tk.Tk):
         self._table = TableCanvas(inner_t)
         self._table.grid(row=2, column=0, sticky="nsew", padx=0, pady=0)
 
-    # ── Helpers UI ────────────────────────────────────────────────────────────
     def _paste_func(self, text):
         self.func_entry.delete(0, "end")
         self.func_entry.insert(0, text)
@@ -718,32 +690,49 @@ class Axe1Screen(tk.Tk):
             self._conv_lbl.config(text="non converge",
                                    bg=C["err_bg"], fg=C["err_fg"])
 
-    # ── Parse ─────────────────────────────────────────────────────────────────
+    def _show_error(self, title, text):
+        messagebox.showerror(title, text)
+        self._set_pill("erreur", "error")
+
+    def _read_x0(self):
+        try:
+            return float(self.x0_entry.get())
+        except ValueError:
+            raise ValueError("x0 doit etre un nombre.")
+
+    def _finish_algorithm(self, f, a, b, root, err, rows, cols, converged,
+                          note=None):
+        self._fill_table(cols, rows, converged)
+        self._set_stats(f"{root:.7g}", len(rows), f"{err:.2e}")
+
+        msg = f"Racine  {root:.8g}   ({len(rows)} iterations)"
+        if note:
+            msg += f"\n{note}"
+        self._show_result(msg, "ok" if converged else "warn")
+        self._plot(f, a, b, root)
+        self._set_pill("converge" if converged else "non converge",
+                       "ok" if converged else "warn")
+
     def _parse_function(self):
         expr = self.func_entry.get().strip()
-        safe = {
-            "x": 0, "np": np, "math": math,
-            "sin": np.sin, "cos": np.cos, "tan": np.tan,
-            "exp": np.exp, "log": np.log, "log10": np.log10,
-            "sqrt": np.sqrt, "abs": np.abs,
-            "pi": math.pi, "e": math.e,
-        }
         try:
-            t = dict(safe); t["x"] = 1.0
-            eval(compile(expr, "<string>", "eval"), {"__builtins__": {}}, t)
+            code = compile(expr, "<fonction>", "eval")
+            env = dict(SAFE_FUNCTIONS)
+            env["x"] = 1.0
+            eval(code, {"__builtins__": {}}, env)
         except Exception as ex:
             raise ValueError(f"Expression invalide : {ex}")
 
         def f(x):
-            env = dict(safe); env["x"] = x
-            return eval(compile(expr, "<string>", "eval"),
-                        {"__builtins__": {}}, env)
+            env = dict(SAFE_FUNCTIONS)
+            env["x"] = x
+            return eval(code, {"__builtins__": {}}, env)
         return f
 
     def _parse_inputs(self):
         try:
-            a   = float(self.a_entry.get())
-            b   = float(self.b_entry.get())
+            a = float(self.a_entry.get())
+            b = float(self.b_entry.get())
             tol = float(self.tol_entry.get())
         except ValueError:
             raise ValueError("a, b et eps doivent etre des nombres valides.")
@@ -753,7 +742,6 @@ class Axe1Screen(tk.Tk):
             raise ValueError("La tolerance doit etre > 0.")
         return a, b, tol
 
-    # ── Graphe ────────────────────────────────────────────────────────────────
     def _plot(self, f, a, b, root=None):
         marge = abs(b - a) * 0.35
         xs = np.linspace(a - marge, b + marge, 400)
@@ -764,14 +752,12 @@ class Axe1Screen(tk.Tk):
         self._graph_data = (xs, ys, a, b, root)
         self._graph.plot(xs, ys, a, b, root)
 
-    # ── Tableau ───────────────────────────────────────────────────────────────
     def _fill_table(self, cols, rows, converged=True):
         self._last_table_cols = list(cols)
         self._last_table_data = rows
         self._table.set_data(cols, rows)
         self._set_conv_badge(converged)
 
-    # ── Run ───────────────────────────────────────────────────────────────────
     def _run_algorithm(self):
         self._result_outer.pack_forget()
         self._info_outer.pack_forget()
@@ -783,122 +769,125 @@ class Axe1Screen(tk.Tk):
             a, b, tol = self._parse_inputs()
             algo = self.algo_var.get()
         except ValueError as e:
-            from tkinter import messagebox
-            messagebox.showerror("Erreur", str(e))
+            self._show_error("Erreur", str(e))
+            return
+
+        try:
+            if algo == "Dichotomie":
+                self._run_bisection(f, a, b, tol)
+            elif algo == "Point Fixe":
+                self._run_fixed_point(f, a, b, tol)
+            elif algo == "Newton":
+                self._run_newton(f, a, b, tol)
+        except ValueError as e:
+            self._show_error("Erreur", str(e))
+
+    def _run_bisection(self, f, a, b, tol):
+        fa = f(a)
+        fb = f(b)
+        if fa * fb >= 0:
+            self._show_error(
+                "Dichotomie impossible",
+                f"f(a) x f(b) doit etre < 0.\n"
+                f"f({a}) = {fa:.4f},  f({b}) = {fb:.4f}\n"
+                "Choisissez un intervalle contenant une racine.")
+            return
+
+        rows = []
+        left, right = a, b
+        f_left = fa
+
+        for n in range(1, 101):
+            mid = (left + right) / 2
+            f_mid = f(mid)
+            err = (right - left) / 2
+            rows.append((n, left, right, mid, f_mid, err))
+
+            if err < tol:
+                break
+            if f_left * f_mid < 0:
+                right = mid
+            else:
+                left = mid
+                f_left = f_mid
+
+        root = rows[-1][3]
+        err = rows[-1][5]
+        self._finish_algorithm(
+            f, a, b, root, err, rows, COLS["Dichotomie"], err < tol)
+
+    def _run_fixed_point(self, f, a, b, tol):
+        x0 = self._read_x0()
+        g = lambda x: x - f(x)
+        history = _nl.executer_point_fixe(g, x0, epsilon=tol, max_iter=50)
+
+        if not history:
+            messagebox.showinfo("Info", "Aucune iteration produite.")
             self._set_pill("erreur", "error")
             return
 
-        root = None; converged = True
+        rows = [(r[0], r[1], r[2], r[3]) for r in history]
+        root = history[-1][2]
+        err = history[-1][3]
+        converged = err < tol
+        note = None if converged else "Non converge — verifiez la contractante."
+        self._finish_algorithm(
+            f, a, b, root, err, rows, COLS["Point Fixe"], converged, note)
 
-        if algo == "Dichotomie":
-            fa, fb = f(a), f(b)
-            if fa * fb >= 0:
-                from tkinter import messagebox
-                messagebox.showerror(
-                    "Dichotomie impossible",
-                    f"f(a) x f(b) doit etre < 0.\n"
-                    f"f({a}) = {fa:.4f},  f({b}) = {fb:.4f}\n"
-                    "Choisissez un intervalle contenant une racine.")
-                self._set_pill("erreur", "error")
-                return
-            rows = []; ai, bi = a, b
-            for n in range(1, 101):
-                m = (ai + bi) / 2; fm = f(m); eps = (bi - ai) / 2
-                rows.append((n, ai, bi, m, fm, eps))
-                if eps < tol: break
-                if f(ai) * fm < 0: bi = m
-                else: ai = m
-            root = rows[-1][3]
-            err = rows[-1][5]
-            converged = err < tol
-            self._fill_table(COLS["Dichotomie"], rows, converged)
-            self._set_stats(f"{root:.7g}", len(rows), f"{err:.2e}")
-            self._show_result(
-                f"Racine  {root:.8g}   ({len(rows)} iterations)",
-                "ok" if converged else "warn")
+    def _run_newton(self, f, a, b, tol):
+        x0 = self._read_x0()
+        df = self._numeric_derivative(f)
+        history = _nl.solve_newton(x0, eps=tol, max_it=50, func=f, dfunc=df)
 
-        elif algo == "Point Fixe":
-            try:
-                x0 = float(self.x0_entry.get())
-            except ValueError:
-                from tkinter import messagebox
-                messagebox.showerror("Erreur", "x0 doit etre un nombre.")
-                self._set_pill("erreur", "error"); return
-            g = lambda x: x - f(x)
-            data = _nl.executer_point_fixe(g, x0, epsilon=tol, max_iter=50)
-            if not data:
-                from tkinter import messagebox
-                messagebox.showinfo("Info", "Aucune iteration produite.")
-                self._set_pill("erreur", "error"); return
-            rows = [(r[0], r[1], r[2], r[3]) for r in data]
-            root = data[-1][2]; last_err = data[-1][3]
-            converged = last_err < tol
-            self._fill_table(COLS["Point Fixe"], rows, converged)
-            self._set_stats(f"{root:.7g}", len(rows), f"{last_err:.2e}")
-            msg = f"Racine  {root:.8g}   ({len(rows)} iterations)"
-            if not converged:
-                msg += "\nNon converge — verifiez la contractante."
-            self._show_result(msg, "ok" if converged else "warn")
+        if not history:
+            messagebox.showinfo(
+                "Newton",
+                "Derivee nulle en x0 — choisissez un autre point.")
+            self._set_pill("erreur", "error")
+            return
 
-        elif algo == "Newton":
-            try:
-                x0 = float(self.x0_entry.get())
-            except ValueError:
-                from tkinter import messagebox
-                messagebox.showerror("Erreur", "x0 doit etre un nombre.")
-                self._set_pill("erreur", "error"); return
-            h = 1e-7
-            df = lambda x: (f(x + h) - f(x - h)) / (2 * h)
-            history = _nl.solve_newton(x0, eps=tol, max_it=50,
-                                        func=f, dfunc=df)
-            if not history:
-                from tkinter import messagebox
-                messagebox.showinfo("Newton",
-                    "Derivee nulle en x0 — choisissez un autre point.")
-                self._set_pill("erreur", "error"); return
-            rows = [(r[0], r[1], r[2], r[3]) for r in history]
-            root = history[-1][2]; last_err = history[-1][3]
-            converged = last_err < tol
-            self._fill_table(COLS["Newton"], rows, converged)
-            self._set_stats(f"{root:.7g}", len(rows), f"{last_err:.2e}")
-            msg = f"Racine  {root:.8g}   ({len(rows)} iterations)"
-            if not converged:
-                msg += "\nNon converge — essayez un autre x0."
-            self._show_result(msg, "ok" if converged else "warn")
+        rows = [(r[0], r[1], r[2], r[3]) for r in history]
+        root = history[-1][2]
+        err = history[-1][3]
+        converged = err < tol
+        note = None if converged else "Non converge — essayez un autre x0."
+        self._finish_algorithm(
+            f, a, b, root, err, rows, COLS["Newton"], converged, note)
 
-        self._plot(f, a, b, root)
-        self._set_pill("converge" if converged else "non converge",
-                        "ok" if converged else "warn")
+    def _numeric_derivative(self, f, h=1e-7):
+        return lambda x: (f(x + h) - f(x - h)) / (2 * h)
 
-    # ── Actions ──────────────────────────────────────────────────────────────
     def _calc_derivative(self):
         try:
             f = self._parse_function()
         except ValueError as e:
-            from tkinter import messagebox
-            messagebox.showerror("Erreur", str(e)); return
+            self._show_error("Erreur", str(e))
+            return
         try:
             import sympy as sp
             x = sp.Symbol("x")
             expr = self.func_entry.get().strip()
-            df  = sp.diff(sp.sympify(expr), x)
+            df = sp.diff(sp.sympify(expr), x)
             ddf = sp.diff(df, x)
             self._show_info(
                 f"f'(x)  = {sp.simplify(df)}\n"
                 f"f''(x) = {sp.simplify(ddf)}")
         except Exception:
             h = 1e-5
-            try: av = float(self.a_entry.get())
-            except: av = 0.0
+            try:
+                av = float(self.a_entry.get())
+            except ValueError:
+                av = 0.0
             dfn = (f(av + h) - f(av - h)) / (2 * h)
             self._show_info(f"f'({av}) approx {dfn:.6g}  (numerique)")
 
     def _verify_continuity(self):
         try:
-            f = self._parse_function(); a, b, _ = self._parse_inputs()
+            f = self._parse_function()
+            a, b, _ = self._parse_inputs()
         except ValueError as e:
-            from tkinter import messagebox
-            messagebox.showerror("Erreur", str(e)); return
+            self._show_error("Erreur", str(e))
+            return
         xs = np.linspace(a, b, 500)
         try:
             ys = np.array([f(xi) for xi in xs])
@@ -913,10 +902,11 @@ class Axe1Screen(tk.Tk):
 
     def _check_stability(self):
         try:
-            f = self._parse_function(); a, b, _ = self._parse_inputs()
+            f = self._parse_function()
+            a, b, _ = self._parse_inputs()
         except ValueError as e:
-            from tkinter import messagebox
-            messagebox.showerror("Erreur", str(e)); return
+            self._show_error("Erreur", str(e))
+            return
         g = lambda x: x - f(x)
         xs = np.linspace(a, b, 200)
         try:
@@ -931,13 +921,13 @@ class Axe1Screen(tk.Tk):
 
     def _check_contractante(self):
         try:
-            f = self._parse_function(); a, b, _ = self._parse_inputs()
+            f = self._parse_function()
+            a, b, _ = self._parse_inputs()
         except ValueError as e:
-            from tkinter import messagebox
-            messagebox.showerror("Erreur", str(e)); return
+            self._show_error("Erreur", str(e))
+            return
         g = lambda x: x - f(x)
-        h = 1e-7
-        dg = lambda x: (g(x + h) - g(x - h)) / (2 * h)
+        dg = self._numeric_derivative(g)
         xs = np.linspace(a, b, 200)
         try:
             k = float(np.max(np.abs([dg(xi) for xi in xs])))
@@ -948,36 +938,47 @@ class Axe1Screen(tk.Tk):
         except Exception:
             self._show_info("Impossible de verifier la contractante.")
 
-    # ── Downloads ────────────────────────────────────────────────────────────
     def _download_graph(self):
         if self._graph_data is None:
-            from tkinter import messagebox
-            messagebox.showinfo("Info", "Lancez d'abord un algorithme."); return
-        from tkinter import filedialog, messagebox
+            messagebox.showinfo("Info", "Lancez d'abord un algorithme.")
+            return
         path = filedialog.asksaveasfilename(
             defaultextension=".svg",
             filetypes=[("SVG", "*.svg"), ("Texte", "*.txt")],
             title="Exporter le graphe")
-        if not path: return
+        if not path:
+            return
         xs, ys, a, b, root = self._graph_data
         W, H = 600, 300
         m = {"top": 20, "right": 20, "bottom": 40, "left": 50}
-        px_l = m["left"]; px_r = W - m["right"]
-        px_t = m["top"]; px_b = H - m["bottom"]
-        pw = px_r - px_l; ph = px_b - px_t
+        px_l = m["left"]
+        px_r = W - m["right"]
+        px_t = m["top"]
+        px_b = H - m["bottom"]
+        pw = px_r - px_l
+        ph = px_b - px_t
         valid = np.isfinite(ys)
         if not np.any(valid):
-            messagebox.showwarning("Graphe vide", "Aucune donnee a exporter."); return
+            messagebox.showwarning("Graphe vide", "Aucune donnee a exporter.")
+            return
         x_min, x_max = float(xs[0]), float(xs[-1])
-        y_min = float(np.min(ys[valid])); y_max = float(np.max(ys[valid]))
+        y_min = float(np.min(ys[valid]))
+        y_max = float(np.max(ys[valid]))
         pad = max((y_max - y_min) * 0.1, 1e-9)
-        y_min -= pad; y_max += pad
+        y_min -= pad
+        y_max += pad
+
         def tp(xv, yv):
             px = px_l + (xv - x_min) / (x_max - x_min) * pw
             py = px_b - (yv - y_min) / (y_max - y_min) * ph
             return px, py
-        pts = " ".join(f"{tp(xv,yv)[0]:.2f},{tp(xv,yv)[1]:.2f}"
-                       for xv, yv in zip(xs, ys) if math.isfinite(yv))
+
+        pts = []
+        for xv, yv in zip(xs, ys):
+            if math.isfinite(yv):
+                px, py = tp(xv, yv)
+                pts.append(f"{px:.2f},{py:.2f}")
+        pts = " ".join(pts)
         lines = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}">',
                  f'<rect width="{W}" height="{H}" fill="#f0f4f8"/>',
                  f'<rect x="{px_l}" y="{px_t}" width="{pw}" height="{ph}" fill="white" stroke="#d0d7e3"/>',
@@ -1003,14 +1004,14 @@ class Axe1Screen(tk.Tk):
 
     def _download_table(self):
         if not self._last_table_data:
-            from tkinter import messagebox
-            messagebox.showinfo("Info", "Lancez d'abord un algorithme."); return
-        from tkinter import filedialog, messagebox
+            messagebox.showinfo("Info", "Lancez d'abord un algorithme.")
+            return
         path = filedialog.asksaveasfilename(
             defaultextension=".csv",
             filetypes=[("CSV", "*.csv"), ("Texte", "*.txt")],
             title="Enregistrer le tableau")
-        if not path: return
+        if not path:
+            return
         try:
             with open(path, "w", encoding="utf-8") as fp:
                 fp.write(";".join(self._last_table_cols) + "\n")
