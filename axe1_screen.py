@@ -77,7 +77,7 @@ class Axe1Screen(tk.Tk):
         enable_dpi_awareness()
         super().__init__()
         self.title("Axe 1 — Function Analysis")
-        self.geometry("1020x720")
+        self.state("zoomed")
         self.minsize(880, 600)
         self.configure(bg=COLORS["bg"])
 
