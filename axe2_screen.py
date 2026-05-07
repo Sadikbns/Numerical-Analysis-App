@@ -7,6 +7,8 @@ import numpy as np
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
+from ui.axe1_widgets import enable_dpi_awareness
+
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(_HERE, "modules", "chap 2 and 3"))
 
@@ -33,9 +35,11 @@ class Axe2Screen(tk.Tk):
     """
 
     def __init__(self):
+        enable_dpi_awareness()
         super().__init__()
         self.title("Axe 2 — Linear Systems")
-        self.geometry("1150x820")
+        self.state("zoomed")
+        self.minsize(960, 680)
         self.configure(bg="#f0f4f8")
         self._matrix_entries = []
         self._b_entries = []

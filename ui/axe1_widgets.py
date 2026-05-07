@@ -4,6 +4,14 @@ import tkinter as tk
 import numpy as np
 
 
+def enable_dpi_awareness():
+    try:
+        from ctypes import windll
+        windll.shcore.SetProcessDpiAwareness(1)
+    except Exception:
+        pass
+
+
 COLORS = {
     "bg":          "#f0f4f8",
     "surface":     "#ffffff",

@@ -7,6 +7,8 @@ import sympy as sp
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
+from ui.axe1_widgets import enable_dpi_awareness
+
 # Import your algorithms
 sys.path.append(os.path.join(os.path.dirname(__file__), "modules", "chap 4 and 5"))
 try:
@@ -28,9 +30,11 @@ class Axe3Screen(tk.Tk):
     """
 
     def __init__(self):
+        enable_dpi_awareness()
         super().__init__()
         self.title("Axe 3 — Interpolation / Approximation")
-        self.geometry("1180x880")
+        self.state("zoomed")
+        self.minsize(980, 720)
         self.configure(bg="#f0f4f8")
         self._build()
 

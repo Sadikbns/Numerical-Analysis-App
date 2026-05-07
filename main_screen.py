@@ -1,9 +1,12 @@
 import tkinter as tk
 from tkinter import ttk, font
 
+from ui.axe1_widgets import enable_dpi_awareness
+
 
 class MainScreen(tk.Tk):
     def __init__(self):
+        enable_dpi_awareness()
         super().__init__()
         self.title("Numerical Analysis Tool")
         self.geometry("600x500")

@@ -15,6 +15,7 @@ from ui.axe1_widgets import (
     _line,
     _panel,
     _text,
+    enable_dpi_awareness,
     show_dialog,
 )
 
@@ -73,9 +74,10 @@ SAFE_FUNCTIONS = {
 class Axe1Screen(tk.Tk):
 
     def __init__(self):
+        enable_dpi_awareness()
         super().__init__()
         self.title("Axe 1 — Function Analysis")
-        self.geometry("1020x720")
+        self.state("zoomed")
         self.minsize(880, 600)
         self.configure(bg=COLORS["bg"])
 
