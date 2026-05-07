@@ -9,7 +9,11 @@ class MainScreen(tk.Tk):
         enable_dpi_awareness()
         super().__init__()
         self.title("Numerical Analysis Tool")
-        self.geometry("600x500")
+        sw = self.winfo_screenwidth()
+        sh = self.winfo_screenheight()
+        w = min(600, sw - 80)
+        h = min(500, sh - 80)
+        self.geometry(f"{w}x{h}")
         self.resizable(False, False)
         self.configure(bg="#f5f5f5")
         self._build()
@@ -103,5 +107,13 @@ class MainScreen(tk.Tk):
 
 
 if __name__ == "__main__":
+    import ctypes
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(1)
+    except Exception:
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except Exception:
+            pass
     app = MainScreen()
     app.mainloop()
