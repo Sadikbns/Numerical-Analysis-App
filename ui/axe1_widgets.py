@@ -87,7 +87,7 @@ def _darken(hex_color):
         return hex_color
 
 
-def _panel(parent, title, dot=None):
+def _panel(parent, title, dot=None, compact=False):
     outer = tk.Frame(parent, bg=COLORS["border"], bd=0)
     inner = tk.Frame(outer, bg=COLORS["surface"])
     inner.pack(fill="both", expand=True, padx=1, pady=1)
@@ -95,13 +95,16 @@ def _panel(parent, title, dot=None):
     hdr = tk.Frame(inner, bg=COLORS["hdr_bg"])
     hdr.pack(fill="x")
     if dot:
+        _dot_pady = 7 if compact else 11
         tk.Frame(hdr, bg=dot, width=7, height=7).pack(side="left",
-                                                        padx=(10, 4), pady=11)
+                                                        padx=(10, 4), pady=_dot_pady)
+    _hdr_pady = 5 if compact else 7
     _text(hdr, title, size=10, bold=True,
-          color=COLORS["primary_mid"], bg=COLORS["hdr_bg"]).pack(side="left", pady=7)
+          color=COLORS["primary_mid"], bg=COLORS["hdr_bg"]).pack(side="left", pady=_hdr_pady)
     _line(inner).pack(fill="x")
 
-    body = tk.Frame(inner, bg=COLORS["surface"], padx=10, pady=8)
+    _body_pady = 4 if compact else 8
+    body = tk.Frame(inner, bg=COLORS["surface"], padx=10, pady=_body_pady)
     body.pack(fill="both", expand=True)
     return outer, body, inner
 

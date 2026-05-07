@@ -35,7 +35,11 @@ class Axe2Screen(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Axe 2 — Linear Systems")
-        self.geometry("1150x820")
+        sw = self.winfo_screenwidth()
+        sh = self.winfo_screenheight()
+        w = min(1150, sw - 80)
+        h = min(820, sh - 80)
+        self.geometry(f"{w}x{h}")
         self.configure(bg="#f0f4f8")
         self._matrix_entries = []
         self._b_entries = []
@@ -607,4 +611,12 @@ class Axe2Screen(tk.Tk):
 
 
 if __name__ == "__main__":
+    import ctypes
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(1)
+    except Exception:
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except Exception:
+            pass
     Axe2Screen().mainloop()

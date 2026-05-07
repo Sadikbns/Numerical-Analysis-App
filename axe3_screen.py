@@ -30,7 +30,11 @@ class Axe3Screen(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Axe 3 — Interpolation / Approximation")
-        self.geometry("1180x880")
+        sw = self.winfo_screenwidth()
+        sh = self.winfo_screenheight()
+        w = min(1180, sw - 80)
+        h = min(880, sh - 80)
+        self.geometry(f"{w}x{h}")
         self.configure(bg="#f0f4f8")
         self._build()
 
@@ -367,4 +371,12 @@ class Axe3Screen(tk.Tk):
 
 
 if __name__ == "__main__":
+    import ctypes
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(1)
+    except Exception:
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except Exception:
+            pass
     Axe3Screen().mainloop()

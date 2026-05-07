@@ -75,8 +75,12 @@ class Axe1Screen(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Axe 1 — Function Analysis")
-        self.geometry("1020x720")
-        self.minsize(880, 600)
+        sw = self.winfo_screenwidth()
+        sh = self.winfo_screenheight()
+        w = min(1020, sw - 80)
+        h = min(720, sh - 80)
+        self.geometry(f"{w}x{h}")
+        self.minsize(min(880, w), min(600, h))
         self.configure(bg=COLORS["bg"])
 
         self._last_table_data = []
@@ -115,20 +119,36 @@ class Axe1Screen(tk.Tk):
         self._pill.pack(side="right", padx=14)
 
     def _build_left(self, parent):
-        outer = tk.Frame(parent, bg=COLORS["bg"])
-        outer.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        container = tk.Frame(parent, bg=COLORS["bg"])
+        container.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        container.rowconfigure(0, weight=1)
+        container.columnconfigure(0, weight=1)
 
-        card, body, _ = _panel(outer, "  Entrees", dot=COLORS["primary_mid"])
-        card.pack(fill="x", pady=(0, 8))
+        _lc = tk.Canvas(container, bg=COLORS["bg"], highlightthickness=0)
+        _vsb = tk.Scrollbar(container, orient="vertical", command=_lc.yview)
+        _lc.configure(yscrollcommand=_vsb.set)
+        _lc.grid(row=0, column=0, sticky="nsew")
+        _vsb.grid(row=0, column=1, sticky="ns")
+
+        outer = tk.Frame(_lc, bg=COLORS["bg"])
+        _win = _lc.create_window((0, 0), window=outer, anchor="nw")
+
+        outer.bind("<Configure>", lambda e: _lc.configure(scrollregion=_lc.bbox("all")))
+        _lc.bind("<Configure>", lambda e: _lc.itemconfig(_win, width=e.width))
+        _lc.bind("<MouseWheel>",
+                 lambda e: _lc.yview_scroll(int(-1 * (e.delta / 120)), "units"))
+
+        card, body, _ = _panel(outer, "  Entrees", dot=COLORS["primary_mid"], compact=True)
+        card.pack(fill="x", pady=(0, 5))
 
         _text(body, "Formule f(x)", color=COLORS["text_label"]).pack(anchor="w")
         self.func_entry = _field(body, "x**3 - x - 2", mono=True)
-        self.func_entry.pack(fill="x", pady=(2, 6))
+        self.func_entry.pack(fill="x", pady=(2, 4))
 
         _text(body, "Exemples :", size=9,
              color=COLORS["text_muted"]).pack(anchor="w")
         sc_row = tk.Frame(body, bg=COLORS["surface"])
-        sc_row.pack(fill="x", pady=(2, 8))
+        sc_row.pack(fill="x", pady=(2, 4))
         for ex in EXAMPLES:
             b = tk.Button(sc_row, text=ex, bg=COLORS["hdr_bg"],
                           fg=COLORS["text_muted"], font=("Courier", 8),
@@ -137,11 +157,11 @@ class Axe1Screen(tk.Tk):
                           command=lambda v=ex: self._paste_func(v))
             b.pack(side="left", padx=2)
 
-        _line(body).pack(fill="x", pady=6)
+        _line(body).pack(fill="x", pady=4)
 
         _text(body, "Intervalle [a, b]", color=COLORS["text_label"]).pack(anchor="w")
         iv = tk.Frame(body, bg=COLORS["surface"])
-        iv.pack(fill="x", pady=(2, 8))
+        iv.pack(fill="x", pady=(2, 4))
         self.a_entry = _field(iv, "1", width=7, mono=True)
         self.a_entry.pack(side="left")
         _text(iv, "  →  ", color=COLORS["text_muted"],
@@ -163,13 +183,13 @@ class Axe1Screen(tk.Tk):
         self.x0_entry.config(bg="#fffdef")
         self.x0_entry.pack(anchor="w", padx=8, pady=(2, 6))
 
-        card2, body2, _ = _panel(outer, "  Algorithme", dot=COLORS["primary_mid"])
-        card2.pack(fill="x", pady=(0, 8))
+        card2, body2, _ = _panel(outer, "  Algorithme", dot=COLORS["primary_mid"], compact=True)
+        card2.pack(fill="x", pady=(0, 5))
 
         self.algo_var = tk.StringVar(value="Dichotomie")
         for algo in ALGORITHMS:
             row = tk.Frame(body2, bg=COLORS["surface"])
-            row.pack(fill="x", pady=3)
+            row.pack(fill="x", pady=2)
             rb = tk.Radiobutton(row, text=algo, variable=self.algo_var,
                                 value=algo, bg=COLORS["surface"], fg=COLORS["text"],
                                 font=("Helvetica", 11),
@@ -182,8 +202,8 @@ class Axe1Screen(tk.Tk):
                                font=("Helvetica", 8), padx=6, pady=1)
             tag_lbl.pack(side="right")
 
-        card3, body3, _ = _panel(outer, "  Analyser f(x)", dot=COLORS["blue"])
-        card3.pack(fill="x", pady=(0, 8))
+        card3, body3, _ = _panel(outer, "  Analyser f(x)", dot=COLORS["blue"], compact=True)
+        card3.pack(fill="x", pady=(0, 5))
 
         for icon, label, badge, cmd in [
             ("f'",  "Derivees f'(x), f''(x)", None,  self._calc_derivative),
@@ -191,17 +211,21 @@ class Axe1Screen(tk.Tk):
             ("g",   "Stabilite de g(x)",        "k",   self._check_stability),
             ("|k|", "Contractante sur [a, b]",  "k<1", self._check_contractante),
         ]:
-            self._action_row(body3, icon, label, badge, cmd)
+            self._action_row(body3, icon, label, badge, cmd, pady=1)
 
         run_frame = tk.Frame(outer, bg=COLORS["bg"])
-        run_frame.pack(fill="x", pady=(0, 6))
+        run_frame.pack(fill="x", pady=(0, 3))
         self._run_btn = _button(run_frame, "  Lancer l'algorithme",
                               bg=COLORS["primary_mid"], bold=True,
-                              size=12, pad_y=10,
+                              size=12, pad_y=7,
                               cmd=self._run_algorithm)
         self._run_btn.pack(fill="x")
 
-        self._result_outer = tk.Frame(outer, bg=COLORS["primary_lt"],
+        # Result/info boxes are outside the scrollable area so they never add scroll height
+        result_area = tk.Frame(container, bg=COLORS["bg"])
+        result_area.grid(row=1, column=0, columnspan=2, sticky="ew")
+
+        self._result_outer = tk.Frame(result_area, bg=COLORS["primary_lt"],
                                        highlightthickness=1,
                                        highlightbackground="#a8d5b5")
         self._result_lbl = tk.Label(self._result_outer, text="",
@@ -210,9 +234,9 @@ class Axe1Screen(tk.Tk):
                                      font=("Helvetica", 10, "bold"),
                                      justify="left", wraplength=250,
                                      anchor="w")
-        self._result_lbl.pack(padx=10, pady=7, anchor="w")
+        self._result_lbl.pack(padx=10, pady=6, anchor="w")
 
-        self._info_outer = tk.Frame(outer, bg=COLORS["warn_bg"],
+        self._info_outer = tk.Frame(result_area, bg=COLORS["warn_bg"],
                                      highlightthickness=1,
                                      highlightbackground="#f0c040")
         self._info_lbl = tk.Label(self._info_outer, text="",
@@ -221,11 +245,11 @@ class Axe1Screen(tk.Tk):
                                    font=("Helvetica", 9),
                                    justify="left", wraplength=250,
                                    anchor="w")
-        self._info_lbl.pack(padx=10, pady=7, anchor="w")
+        self._info_lbl.pack(padx=10, pady=6, anchor="w")
 
-    def _action_row(self, parent, icon, label, badge, cmd):
+    def _action_row(self, parent, icon, label, badge, cmd, pady=2):
         row = tk.Frame(parent, bg=COLORS["surface"])
-        row.pack(fill="x", pady=2)
+        row.pack(fill="x", pady=pady)
 
         ic = tk.Frame(row, bg=COLORS["primary_mid"], width=22, height=22)
         ic.pack(side="left", padx=(0, 6))
@@ -663,4 +687,12 @@ class Axe1Screen(tk.Tk):
 
 
 if __name__ == "__main__":
+    import ctypes
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(1)
+    except Exception:
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except Exception:
+            pass
     Axe1Screen().mainloop()
