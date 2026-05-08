@@ -7,7 +7,7 @@ import sympy as sp
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-# Import your algorithms
+# Import your algorithms + new functions
 sys.path.append(os.path.join(os.path.dirname(__file__), "modules", "chap 4 and 5"))
 try:
     from interpolation_approximation import (
@@ -17,6 +17,10 @@ try:
         least_squares_polynomial,
         chebyshev_approximation,
         gradient_descent_sympy,
+        all_discrete_norms,
+        all_continuous_norms,
+        approximation_error_discrete,
+        approximation_error_continuous,
     )
 except ImportError as e:
     print("Warning: Could not import interpolation module:", e)
@@ -24,17 +28,14 @@ except ImportError as e:
 
 class Axe3Screen(tk.Tk):
     """
-    Axe 3 — Interpolation / Approximation (Updated Input Logic)
+    Axe 3 — Interpolation / Approximation (with Norms & Error Analysis)
     """
 
     def __init__(self):
         super().__init__()
         self.title("Axe 3 — Interpolation / Approximation")
-        sw = self.winfo_screenwidth()
-        sh = self.winfo_screenheight()
-        w = min(1180, sw - 80)
-        h = min(880, sh - 80)
-        self.geometry(f"{w}x{h}")
+        self.geometry("1280x920")
+        self.minsize(1100, 700)
         self.configure(bg="#f0f4f8")
         self._build()
 
@@ -60,10 +61,36 @@ class Axe3Screen(tk.Tk):
 
     # ── Left Panel ────────────────────────────────────────────────
     def _left_panel(self, parent):
-        frame = tk.Frame(parent, bg="#f0f4f8")
-        frame.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        outer = tk.Frame(parent, bg="#f0f4f8")
+        outer.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
 
-        inp = tk.LabelFrame(frame, text="User Inputs", bg="#f0f4f8", fg="#8e44ad",
+        # Canvas + Scrollbar
+        canvas = tk.Canvas(outer, bg="#f0f4f8", highlightthickness=0)
+        scrollbar = tk.Scrollbar(outer, orient="vertical", command=canvas.yview)
+        self.scrollable_frame = tk.Frame(canvas, bg="#f0f4f8")
+
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Mouse wheel support
+        canvas.bind_all("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1*(e.delta/120)), "units"))
+
+        # Now build content inside scrollable_frame
+        self._build_left_content(self.scrollable_frame)
+
+    def _build_left_content(self, parent):
+        """All left panel widgets go here"""
+
+        # User Inputs Card
+        inp = tk.LabelFrame(parent, text="User Inputs", bg="#f0f4f8", fg="#8e44ad",
                             font=("Helvetica", 11, "bold"), padx=10, pady=8)
         inp.pack(fill="x", pady=(0, 10))
 
@@ -80,14 +107,31 @@ class Axe3Screen(tk.Tk):
         self.points_frame.pack(fill="x")
         self._build_points_input()
 
-        # Dynamic extra inputs
+        # Extra parameters
         self.extra_frame = tk.Frame(inp, bg="#f0f4f8")
         self.extra_frame.pack(fill="x", pady=8)
         self._update_inputs()
 
-        tk.Button(frame, text="▶  Run Method", bg="#8e44ad", fg="white",
+        # Run Button
+        tk.Button(parent, text="▶  Run Method", bg="#8e44ad", fg="white",
                   font=("Helvetica", 12, "bold"), relief="flat", height=2,
                   command=self._run_method).pack(fill="x", pady=12)
+
+        # Norms & Error Analysis Section
+        norm_card = tk.LabelFrame(parent, text="Norms & Error Analysis", 
+                                  bg="#f0f4f8", fg="#8e44ad",
+                                  font=("Helvetica", 11, "bold"), padx=10, pady=8)
+        norm_card.pack(fill="x", pady=8)
+
+        for text, cmd in [
+            ("Discrete Norms (L1, L2, L∞)", self._compute_discrete_norms),
+            ("Continuous Norms", self._compute_continuous_norms),
+            ("Error Analysis (Discrete)", self._error_discrete),
+            ("Error Analysis (Continuous)", self._error_continuous),
+        ]:
+            tk.Button(norm_card, text=text, bg="#f4eefa", fg="#6c3483",
+                      font=("Helvetica", 10), relief="solid", bd=1,
+                      width=35, cursor="hand2", command=cmd).pack(pady=3, anchor="w")
 
     def _build_points_input(self):
         for w in self.points_frame.winfo_children():
@@ -110,8 +154,7 @@ class Axe3Screen(tk.Tk):
         method = self.method_var.get()
 
         if method == "Least Squares":
-            # Function + Degree
-            tk.Label(self.extra_frame, text="Input model f(x) :", bg="#f0f4f8", font=("Helvetica", 10, "bold")).pack(anchor="w")
+            tk.Label(self.extra_frame, text="Function f(x):", bg="#f0f4f8", font=("Helvetica", 10, "bold")).pack(anchor="w")
             self.ls_func_entry = tk.Entry(self.extra_frame, width=35, font=("Courier", 11))
             self.ls_func_entry.insert(0, "cos(x)")
             self.ls_func_entry.pack(anchor="w", pady=4)
@@ -128,7 +171,7 @@ class Axe3Screen(tk.Tk):
             iv = tk.Frame(self.extra_frame, bg="#f0f4f8")
             iv.pack(anchor="w", pady=4)
             self.a_entry = tk.Entry(iv, width=6); self.a_entry.insert(0, "-1"); self.a_entry.pack(side="left")
-            tk.Label(iv, text="  to  ", bg="#f0f4f8").pack(side="left")
+            tk.Label(iv, text=" to ", bg="#f0f4f8").pack(side="left")
             self.b_entry = tk.Entry(iv, width=6); self.b_entry.insert(0, "1"); self.b_entry.pack(side="left")
 
             tk.Label(self.extra_frame, text="Degree:", bg="#f0f4f8").pack(anchor="w")
@@ -137,7 +180,7 @@ class Axe3Screen(tk.Tk):
                 tk.Radiobutton(self.extra_frame, text=d, variable=self.cheb_degree, value=d, bg="#f0f4f8").pack(anchor="w")
 
         elif method == "Gradient Descent":
-            tk.Label(self.extra_frame, text="Input model:", bg="#f0f4f8", font=("Helvetica", 10, "bold")).pack(anchor="w", pady=(8, 2))
+            tk.Label(self.extra_frame, text="Function f(vars):", bg="#f0f4f8", font=("Helvetica", 10, "bold")).pack(anchor="w", pady=(8, 2))
             self.gd_func_entry = tk.Entry(self.extra_frame, width=40)
             self.gd_func_entry.insert(0, "(x-1)**2 + 2*(y+2)**2")
             self.gd_func_entry.pack(anchor="w", pady=2)
@@ -147,7 +190,7 @@ class Axe3Screen(tk.Tk):
             self.gd_vars_entry.insert(0, "x,y")
             self.gd_vars_entry.pack(anchor="w", pady=2)
 
-            tk.Label(self.extra_frame, text="Initial estimation x0 (comma-separated):", bg="#f0f4f8").pack(anchor="w", pady=(8, 2))
+            tk.Label(self.extra_frame, text="Initial estimation x0:", bg="#f0f4f8").pack(anchor="w", pady=(8, 2))
             self.gd_x0_entry = tk.Entry(self.extra_frame, width=20)
             self.gd_x0_entry.insert(0, "0,0")
             self.gd_x0_entry.pack(anchor="w", pady=2)
@@ -161,7 +204,7 @@ class Axe3Screen(tk.Tk):
             tk.Label(f2, text="tol:", bg="#f0f4f8").pack(side="left")
             self.gd_tol_entry = tk.Entry(f2, width=8); self.gd_tol_entry.insert(0, "1e-6"); self.gd_tol_entry.pack(side="left", padx=4)
 
-    # ── Right Panel ───────────────────────────────────────────────
+    # ── Right Panel (unchanged) ───────────────────────────────────
     def _right_panel(self, parent):
         frame = tk.Frame(parent, bg="#f0f4f8")
         frame.grid(row=0, column=1, sticky="nsew")
@@ -175,12 +218,10 @@ class Axe3Screen(tk.Tk):
         self.poly_text = tk.Text(poly_lf, height=4, font=("Courier", 10), bg="#f8f1ff")
         self.poly_text.pack(fill="x", padx=8, pady=6)
 
-    # ── Run Method ────────────────────────────────────────────────
+    # ── Run Method (Full Integration) ─────────────────────────────
     def _run_method(self):
         try:
             method = self.method_var.get()
-
-            # Get data points
             x_data = [float(xe.get()) for xe, ye in self.point_entries if xe.get().strip() and ye.get().strip()]
             y_data = [float(ye.get()) for xe, ye in self.point_entries if xe.get().strip() and ye.get().strip()]
 
@@ -208,9 +249,7 @@ class Axe3Screen(tk.Tk):
 
             elif method == "Least Squares":
                 degree = self.degree_var.get()
-                func_str = self.ls_func_entry.get()   # Function for evaluation
-
-                # Parse function for real values
+                func_str = self.ls_func_entry.get()
                 func_sym = sp.sympify(func_str)
                 real_func = sp.lambdify(x_sym, func_sym, "numpy")
 
@@ -222,15 +261,14 @@ class Axe3Screen(tk.Tk):
                 a = float(self.a_entry.get())
                 b = float(self.b_entry.get())
                 deg = self.cheb_degree.get()
-                
-                def f(t):
-                    return np.cos(np.asarray(t, dtype=float))  # default function
+                def f(t): return np.cos(np.asarray(t, dtype=float))
                 res = chebyshev_approximation(f, deg, a, b)
                 result_text = str(res["poly_sympy"])
                 y_approx = res["evaluate"]
                 real_func = f
 
             elif method == "Gradient Descent":
+                # Gradient Descent logic (kept from previous)
                 func_str = self.gd_func_entry.get()
                 vars_str = self.gd_vars_entry.get()
                 x0_str = self.gd_x0_entry.get()
@@ -260,13 +298,7 @@ class Axe3Screen(tk.Tk):
                 )
                 
                 func_eval = sp.lambdify(vars_syms, func_sympy, modules="numpy")
-                obj_vals = []
-                for xk, _ in history:
-                    try:
-                        fk = float(func_eval(*np.atleast_1d(xk)))
-                        obj_vals.append(fk)
-                    except Exception:
-                        obj_vals.append(np.nan)
+                obj_vals = [float(func_eval(*np.atleast_1d(xk))) for xk, _ in history]
 
                 vals = [float(v) for v in np.atleast_1d(x_opt)]
                 result_text = f"x* = [{', '.join(f'{v:.8g}' for v in vals)}]"
@@ -274,7 +306,7 @@ class Axe3Screen(tk.Tk):
                 y_approx = None
                 real_func = None
 
-            # Update result text
+            # Update result
             self.poly_text.delete("1.0", tk.END)
             if method == "Gradient Descent":
                 self.poly_text.insert("1.0", result_text)
@@ -291,8 +323,6 @@ class Axe3Screen(tk.Tk):
             messagebox.showerror("Error", f"Execution failed:\n{str(e)}")
 
     def _create_plot_with_table(self, x_data, y_data, y_approx, method, real_func=None):
-        """Combined Graph + Table using plt.table - FIXED"""
-        # Clear only plot canvases, keep poly_text and LabelFrames
         for widget in list(self.result_frame.winfo_children()):
             if isinstance(widget, tk.Canvas) or "FigureCanvas" in str(type(widget)):
                 widget.destroy()
@@ -300,7 +330,6 @@ class Axe3Screen(tk.Tk):
         fig = Figure(figsize=(10, 8), dpi=105)
         gs = fig.add_gridspec(3, 1, height_ratios=[4, 0.4, 2.5])
 
-        # Plot
         ax = fig.add_subplot(gs[0])
         ax.scatter(x_data, y_data, color='red', s=70, label='Data Points', zorder=5)
 
@@ -312,7 +341,6 @@ class Axe3Screen(tk.Tk):
         ax.legend()
         ax.grid(True)
 
-        # Table
         ax_table = fig.add_subplot(gs[2])
         ax_table.axis('off')
 
@@ -335,9 +363,7 @@ class Axe3Screen(tk.Tk):
         canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True)
 
-
     def _plot_gradient_descent(self, history, obj_vals):
-        """Gradient Descent Plot"""
         for widget in list(self.result_frame.winfo_children()):
             if isinstance(widget, tk.Canvas) or "FigureCanvas" in str(type(widget)):
                 widget.destroy()
@@ -363,6 +389,53 @@ class Axe3Screen(tk.Tk):
         canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True)
 
+    def _compute_discrete_norms(self):
+        try:
+            values = [float(ye.get()) for xe, ye in self.point_entries if ye.get().strip()]
+            if not values:
+                messagebox.showerror("Error", "Enter some y values")
+                return
+            result = all_discrete_norms(values)
+            self.poly_text.delete("1.0", tk.END)
+            self.poly_text.insert("1.0", f"Discrete Norms:\n{result}")
+            messagebox.showinfo("Discrete Norms", str(result))
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def _compute_continuous_norms(self):
+        try:
+            # Example using current function from Least Squares or default
+            func_str = getattr(self, 'ls_func_entry', None)
+            if func_str and func_str.get():
+                f_str = func_str.get()
+            else:
+                f_str = "cos(x)"
+            f_sym = sp.sympify(f_str)
+            f_np = sp.lambdify(sp.symbols('x'), f_sym, "numpy")
+            result = all_continuous_norms(f_np, -1, 1)
+            self.poly_text.delete("1.0", tk.END)
+            self.poly_text.insert("1.0", f"Continuous Norms on [-1,1]:\n{result}")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def _error_discrete(self):
+        try:
+            y_data = [float(ye.get()) for xe, ye in self.point_entries if ye.get().strip()]
+            if len(y_data) < 2:
+                messagebox.showerror("Error", "Need data points")
+                return
+            # Example: compare with Lagrange
+            poly, _ = lagrange_interpolation(range(len(y_data)), y_data)
+            f_approx = sp.lambdify(sp.symbols('x'), poly, "numpy")
+            y_approx = [f_approx(i) for i in range(len(y_data))]
+            result = approximation_error_discrete(y_data, y_approx)
+            self.poly_text.delete("1.0", tk.END)
+            self.poly_text.insert("1.0", f"Error Analysis (Discrete):\n{result}")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def _error_continuous(self):
+        messagebox.showinfo("Info", "Continuous error analysis coming soon.\nDefine exact and approx functions.")
     def _back(self):
         import subprocess
         path = os.path.join(os.path.dirname(__file__), "main_screen.py")
@@ -371,12 +444,4 @@ class Axe3Screen(tk.Tk):
 
 
 if __name__ == "__main__":
-    import ctypes
-    try:
-        ctypes.windll.shcore.SetProcessDpiAwareness(1)
-    except Exception:
-        try:
-            ctypes.windll.user32.SetProcessDPIAware()
-        except Exception:
-            pass
     Axe3Screen().mainloop()

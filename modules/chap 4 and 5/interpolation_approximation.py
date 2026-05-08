@@ -2,6 +2,10 @@ import numpy as np
 import sympy as sp
 import matplotlib.pyplot as plt
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  Interpolation
+# ─────────────────────────────────────────────────────────────────────────────
+
 def lagrange_interpolation(x_nodes, y_nodes):
     x = sp.symbols("x")
     n = len(x_nodes)
@@ -47,6 +51,10 @@ def newton_polynomial(x_nodes, matrix):
     return sp.simplify(poly)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  Approximation
+# ─────────────────────────────────────────────────────────────────────────────
+
 def least_squares_polynomial(x_data, y_data, degree):
     x_data = np.asarray(x_data, dtype=float)
     y_data = np.asarray(y_data, dtype=float)
@@ -85,7 +93,6 @@ def chebyshev_approximation(func, degree, a, b):
 
     x = sp.symbols("x")
     t = sp.symbols("t")
-    x_from_t = (a + b) / 2 + (b - a) * t / 2
     f_t = lambda tt: func((a + b) / 2 + (b - a) * tt / 2)
 
     roots = np.cos((2 * np.arange(1, degree + 2) - 1) * np.pi / (2 * (degree + 1)))
@@ -116,29 +123,197 @@ def gradient_descent_numpy(grad_fn, x0, lr=0.01, max_iter=1000, tol=1e-6, verbos
         g = np.asarray(grad_fn(x), dtype=float)
         gn = np.linalg.norm(g)
         history.append((x.copy(), gn))
-        
+
         if verbose and (k % max(1, max_iter // 10) == 0 or gn <= tol):
             print(f"iter={k}, ||∇f|| = {gn:.3e}")
-        
+
         if gn <= tol:
             break
-        
+
         x = x - lr * g
-    
+
     return x, history
 
 
 def gradient_descent_sympy(func_sympy, vars, x0, lr=0.01, max_iter=1000, tol=1e-6, verbose=False):
-    
     vars = tuple(vars)
     grad_exprs = [sp.diff(func_sympy, v) for v in vars]
     grad_fn = sp.lambdify(vars, grad_exprs, modules="numpy")
+
     def _grad_fn_numeric(x_arr):
         return np.asarray(grad_fn(*tuple(x_arr)), dtype=float)
 
-    x_opt, history = gradient_descent_numpy(_grad_fn_numeric, x0, lr=lr, max_iter=max_iter, tol=tol, verbose=verbose)
+    x_opt, history = gradient_descent_numpy(
+        _grad_fn_numeric, x0, lr=lr, max_iter=max_iter, tol=tol, verbose=verbose
+    )
     return x_opt, history
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Discrete norms  ‖·‖  on vectors / point clouds
+# ─────────────────────────────────────────────────────────────────────────────
+
+def discrete_norm_1(values):
+    """‖v‖₁ = Σ|vᵢ|  — L¹ (Manhattan) norm."""
+    return float(np.sum(np.abs(np.asarray(values, dtype=float))))
+
+
+def discrete_norm_2(values):
+    """‖v‖₂ = √(Σvᵢ²)  — Euclidean norm."""
+    v = np.asarray(values, dtype=float)
+    return float(np.sqrt(np.sum(v ** 2)))
+
+
+def discrete_norm_p(values, p):
+    """‖v‖ₚ = (Σ|vᵢ|ᵖ)^(1/p)  — Lᵖ norm (p ≥ 1)."""
+    if p < 1:
+        raise ValueError("p must be ≥ 1")
+    v = np.asarray(values, dtype=float)
+    return float(np.sum(np.abs(v) ** p) ** (1.0 / p))
+
+
+def discrete_norm_inf(values):
+    """
+    ‖v‖∞ = max|vᵢ|
+    Chebyshev / minimax / Laplace-Tchebychev norm on a discrete sequence.
+    Returns (norm_value, index_of_max).
+    """
+    v = np.asarray(values, dtype=float)
+    idx = int(np.argmax(np.abs(v)))
+    return float(np.abs(v[idx])), idx
+
+
+def discrete_norm_weighted_2(values, weights):
+    """‖v‖_w = √(Σwᵢ·vᵢ²)  — weighted L² norm. All weights must be > 0."""
+    v = np.asarray(values, dtype=float)
+    w = np.asarray(weights, dtype=float)
+    if np.any(w <= 0):
+        raise ValueError("All weights must be strictly positive.")
+    if v.shape != w.shape:
+        raise ValueError("values and weights must have the same length.")
+    return float(np.sqrt(np.sum(w * v ** 2)))
+
+
+def all_discrete_norms(values, weights=None):
+    """
+    Compute L1, L2, Lp (p=3), L∞ and optionally weighted-L2 on a vector.
+    Returns a dict with keys: L1, L2, L3, Linf, Linf_index, [Lw2].
+    """
+    v = np.asarray(values, dtype=float)
+    linf_val, linf_idx = discrete_norm_inf(v)
+    result = {
+        "L1":         discrete_norm_1(v),
+        "L2":         discrete_norm_2(v),
+        "L3":         discrete_norm_p(v, 3),
+        "Linf":       linf_val,
+        "Linf_index": linf_idx,
+    }
+    if weights is not None:
+        result["Lw2"] = discrete_norm_weighted_2(v, weights)
+    return result
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Continuous norms  ‖·‖  on functions f : [a,b] → ℝ
+# ─────────────────────────────────────────────────────────────────────────────
+
+def continuous_norm_1(func, a, b, n_pts=2000):
+    """‖f‖₁ = ∫_a^b |f(x)| dx  — approximated via trapezoidal rule."""
+    xs = np.linspace(a, b, n_pts)
+    return float(np.trapz(np.abs(func(xs)), xs))
+
+
+def continuous_norm_2(func, a, b, n_pts=2000):
+    """‖f‖₂ = √(∫_a^b f(x)² dx)  — L² norm, trapezoidal rule."""
+    xs = np.linspace(a, b, n_pts)
+    return float(np.sqrt(np.trapz(func(xs) ** 2, xs)))
+
+
+def continuous_norm_p(func, a, b, p, n_pts=2000):
+    """‖f‖ₚ = (∫_a^b |f(x)|ᵖ dx)^(1/p)  — Lᵖ norm (p ≥ 1)."""
+    if p < 1:
+        raise ValueError("p must be ≥ 1")
+    xs = np.linspace(a, b, n_pts)
+    return float(np.trapz(np.abs(func(xs)) ** p, xs) ** (1.0 / p))
+
+
+def continuous_norm_inf(func, a, b, n_pts=5000):
+    """
+    ‖f‖∞ = sup_{x∈[a,b]} |f(x)|
+    Chebyshev / L∞ / minimax norm — Laplace-Tchebychev norm.
+    Returns (norm_value, x_location_of_supremum).
+    """
+    xs = np.linspace(a, b, n_pts)
+    abs_vals = np.abs(func(xs))
+    idx = int(np.argmax(abs_vals))
+    return float(abs_vals[idx]), float(xs[idx])
+
+
+def continuous_norm_weighted_2(func, weight_func, a, b, n_pts=2000):
+    """‖f‖_w = √(∫_a^b w(x)·f(x)² dx)  — weighted L² norm. w(x) ≥ 0."""
+    xs = np.linspace(a, b, n_pts)
+    return float(np.sqrt(np.trapz(weight_func(xs) * func(xs) ** 2, xs)))
+
+
+def all_continuous_norms(func, a, b, weight_func=None, n_pts=3000):
+    """
+    Compute L1, L2, L3, L∞ and optionally weighted-L2 of a function on [a,b].
+    Returns a dict with keys: L1, L2, L3, Linf, Linf_x, [Lw2].
+    """
+    linf_val, linf_x = continuous_norm_inf(func, a, b, n_pts)
+    result = {
+        "L1":     continuous_norm_1(func, a, b, n_pts),
+        "L2":     continuous_norm_2(func, a, b, n_pts),
+        "L3":     continuous_norm_p(func, a, b, 3, n_pts),
+        "Linf":   linf_val,
+        "Linf_x": linf_x,
+    }
+    if weight_func is not None:
+        result["Lw2"] = continuous_norm_weighted_2(func, weight_func, a, b, n_pts)
+    return result
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Error norms between exact and approximation
+# ─────────────────────────────────────────────────────────────────────────────
+
+def approximation_error_discrete(y_exact, y_approx):
+    """
+    All discrete norms of the error vector e = y_exact − y_approx.
+    Returns dict: error_vector, L1, L2, Linf, Linf_index, Linf_value.
+    """
+    e = np.asarray(y_exact, dtype=float) - np.asarray(y_approx, dtype=float)
+    linf_val, linf_idx = discrete_norm_inf(e)
+    return {
+        "error_vector": e,
+        "L1":           discrete_norm_1(e),
+        "L2":           discrete_norm_2(e),
+        "Linf":         linf_val,
+        "Linf_index":   linf_idx,
+        "Linf_value":   float(e[linf_idx]),
+    }
+
+
+def approximation_error_continuous(exact_func, approx_func, a, b, n_pts=3000):
+    """
+    All continuous norms of the error e(x) = exact(x) − approx(x) on [a,b].
+    Returns dict: L1, L2, Linf, Linf_x.
+    """
+    def err_fn(x):
+        return np.asarray(exact_func(x), dtype=float) - np.asarray(approx_func(x), dtype=float)
+
+    linf_val, linf_x = continuous_norm_inf(err_fn, a, b, n_pts)
+    return {
+        "L1":        continuous_norm_1(err_fn, a, b, n_pts),
+        "L2":        continuous_norm_2(err_fn, a, b, n_pts),
+        "Linf":      linf_val,
+        "Linf_xmax": linf_x,
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Legacy visualisation helper
+# ─────────────────────────────────────────────────────────────────────────────
 
 def run_tp4_visualizations():
     x = sp.symbols("x")
@@ -157,16 +332,8 @@ def run_tp4_visualizations():
 
     functions = [
         {"name": "cos(x)", "f": lambda t: np.cos(t), "lim": [-4 * np.pi, 4 * np.pi]},
-        {
-            "name": "exp(-1/(1+x^2))",
-            "f": lambda t: np.exp(-1 / (1 + t**2)),
-            "lim": [-4, 4],
-        },
-        {
-            "name": "Runge: 1/(1+25x^2)",
-            "f": lambda t: 1 / (1 + 25 * t**2),
-            "lim": [-1, 1],
-        },
+        {"name": "exp(-1/(1+x^2))", "f": lambda t: np.exp(-1 / (1 + t**2)), "lim": [-4, 4]},
+        {"name": "Runge: 1/(1+25x^2)", "f": lambda t: 1 / (1 + 25 * t**2), "lim": [-1, 1]},
     ]
 
     for f_info in functions:
@@ -189,12 +356,32 @@ def run_tp4_visualizations():
 
 
 __all__ = [
+    # interpolation
     "lagrange_interpolation",
     "newton_differences",
     "newton_polynomial",
+    # approximation
     "least_squares_polynomial",
     "chebyshev_approximation",
     "gradient_descent_numpy",
     "gradient_descent_sympy",
+    # discrete norms
+    "discrete_norm_1",
+    "discrete_norm_2",
+    "discrete_norm_p",
+    "discrete_norm_inf",
+    "discrete_norm_weighted_2",
+    "all_discrete_norms",
+    # continuous norms
+    "continuous_norm_1",
+    "continuous_norm_2",
+    "continuous_norm_p",
+    "continuous_norm_inf",
+    "continuous_norm_weighted_2",
+    "all_continuous_norms",
+    # error analysis
+    "approximation_error_discrete",
+    "approximation_error_continuous",
+    # visualisation
     "run_tp4_visualizations",
 ]
