@@ -2,10 +2,13 @@ import numpy as np
 import sympy as sp
 import matplotlib.pyplot as plt
 
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  Interpolation
 # ─────────────────────────────────────────────────────────────────────────────
-
+if not hasattr(np, 'trapezoid'):
+    np.trapezoid = np.trapz
+    
 def lagrange_interpolation(x_nodes, y_nodes):
     x = sp.symbols("x")
     n = len(x_nodes)
@@ -154,123 +157,73 @@ def gradient_descent_sympy(func_sympy, vars, x0, lr=0.01, max_iter=1000, tol=1e-
 # ─────────────────────────────────────────────────────────────────────────────
 
 def discrete_norm_1(values):
-    """‖v‖₁ = Σ|vᵢ|  — L¹ (Manhattan) norm."""
+    """‖v‖₁ = Σ|vᵢ|"""
     return float(np.sum(np.abs(np.asarray(values, dtype=float))))
 
 
 def discrete_norm_2(values):
-    """‖v‖₂ = √(Σvᵢ²)  — Euclidean norm."""
+    """‖v‖₂ = √(Σvᵢ²)"""
     v = np.asarray(values, dtype=float)
     return float(np.sqrt(np.sum(v ** 2)))
 
 
-def discrete_norm_p(values, p):
-    """‖v‖ₚ = (Σ|vᵢ|ᵖ)^(1/p)  — Lᵖ norm (p ≥ 1)."""
-    if p < 1:
-        raise ValueError("p must be ≥ 1")
-    v = np.asarray(values, dtype=float)
-    return float(np.sum(np.abs(v) ** p) ** (1.0 / p))
-
-
 def discrete_norm_inf(values):
-    """
-    ‖v‖∞ = max|vᵢ|
-    Chebyshev / minimax / Laplace-Tchebychev norm on a discrete sequence.
-    Returns (norm_value, index_of_max).
-    """
+    """‖v‖∞ = max|vᵢ|  →  returns (value, index)"""
     v = np.asarray(values, dtype=float)
     idx = int(np.argmax(np.abs(v)))
     return float(np.abs(v[idx])), idx
 
 
-def discrete_norm_weighted_2(values, weights):
-    """‖v‖_w = √(Σwᵢ·vᵢ²)  — weighted L² norm. All weights must be > 0."""
-    v = np.asarray(values, dtype=float)
-    w = np.asarray(weights, dtype=float)
-    if np.any(w <= 0):
-        raise ValueError("All weights must be strictly positive.")
-    if v.shape != w.shape:
-        raise ValueError("values and weights must have the same length.")
-    return float(np.sqrt(np.sum(w * v ** 2)))
-
-
-def all_discrete_norms(values, weights=None):
+def all_discrete_norms(values):
     """
-    Compute L1, L2, Lp (p=3), L∞ and optionally weighted-L2 on a vector.
-    Returns a dict with keys: L1, L2, L3, Linf, Linf_index, [Lw2].
+    Compute common discrete norms: L1, L2, L∞
+    Returns a clean dict without L3 or index.
     """
     v = np.asarray(values, dtype=float)
-    linf_val, linf_idx = discrete_norm_inf(v)
-    result = {
-        "L1":         discrete_norm_1(v),
-        "L2":         discrete_norm_2(v),
-        "L3":         discrete_norm_p(v, 3),
-        "Linf":       linf_val,
-        "Linf_index": linf_idx,
+    linf_val, _ = discrete_norm_inf(v)
+    return {
+        "L1":   discrete_norm_1(v),
+        "L2":   discrete_norm_2(v),
+        "Linf": linf_val,
     }
-    if weights is not None:
-        result["Lw2"] = discrete_norm_weighted_2(v, weights)
-    return result
-
+# ─────────────────────────────────────────────────────────────────────────────
+#  Continuous norms  ‖·‖  on functions f : [a,b] → ℝ
+# ─────────────────────────────────────────────────────────────────────────────
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Continuous norms  ‖·‖  on functions f : [a,b] → ℝ
 # ─────────────────────────────────────────────────────────────────────────────
 
 def continuous_norm_1(func, a, b, n_pts=2000):
-    """‖f‖₁ = ∫_a^b |f(x)| dx  — approximated via trapezoidal rule."""
+    """‖f‖₁ = ∫_a^b |f(x)| dx"""
     xs = np.linspace(a, b, n_pts)
     return float(np.trapz(np.abs(func(xs)), xs))
 
 
 def continuous_norm_2(func, a, b, n_pts=2000):
-    """‖f‖₂ = √(∫_a^b f(x)² dx)  — L² norm, trapezoidal rule."""
+    """‖f‖₂ = √(∫_a^b f(x)² dx)"""
     xs = np.linspace(a, b, n_pts)
     return float(np.sqrt(np.trapz(func(xs) ** 2, xs)))
 
 
-def continuous_norm_p(func, a, b, p, n_pts=2000):
-    """‖f‖ₚ = (∫_a^b |f(x)|ᵖ dx)^(1/p)  — Lᵖ norm (p ≥ 1)."""
-    if p < 1:
-        raise ValueError("p must be ≥ 1")
-    xs = np.linspace(a, b, n_pts)
-    return float(np.trapz(np.abs(func(xs)) ** p, xs) ** (1.0 / p))
-
-
 def continuous_norm_inf(func, a, b, n_pts=5000):
-    """
-    ‖f‖∞ = sup_{x∈[a,b]} |f(x)|
-    Chebyshev / L∞ / minimax norm — Laplace-Tchebychev norm.
-    Returns (norm_value, x_location_of_supremum).
-    """
+    """‖f‖∞ = sup |f(x)| on [a,b]  →  returns (value, x_location)"""
     xs = np.linspace(a, b, n_pts)
     abs_vals = np.abs(func(xs))
     idx = int(np.argmax(abs_vals))
     return float(abs_vals[idx]), float(xs[idx])
 
 
-def continuous_norm_weighted_2(func, weight_func, a, b, n_pts=2000):
-    """‖f‖_w = √(∫_a^b w(x)·f(x)² dx)  — weighted L² norm. w(x) ≥ 0."""
-    xs = np.linspace(a, b, n_pts)
-    return float(np.sqrt(np.trapz(weight_func(xs) * func(xs) ** 2, xs)))
-
-
-def all_continuous_norms(func, a, b, weight_func=None, n_pts=3000):
+def all_continuous_norms(func, a, b, n_pts=3000):
     """
-    Compute L1, L2, L3, L∞ and optionally weighted-L2 of a function on [a,b].
-    Returns a dict with keys: L1, L2, L3, Linf, Linf_x, [Lw2].
+    Clean continuous norms: L1, L2, L∞ only.
     """
-    linf_val, linf_x = continuous_norm_inf(func, a, b, n_pts)
-    result = {
-        "L1":     continuous_norm_1(func, a, b, n_pts),
-        "L2":     continuous_norm_2(func, a, b, n_pts),
-        "L3":     continuous_norm_p(func, a, b, 3, n_pts),
-        "Linf":   linf_val,
-        "Linf_x": linf_x,
+    linf_val, _ = continuous_norm_inf(func, a, b, n_pts)
+    return {
+        "L1":   continuous_norm_1(func, a, b, n_pts),
+        "L2":   continuous_norm_2(func, a, b, n_pts),
+        "Linf": linf_val,
     }
-    if weight_func is not None:
-        result["Lw2"] = continuous_norm_weighted_2(func, weight_func, a, b, n_pts)
-    return result
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -368,16 +321,12 @@ __all__ = [
     # discrete norms
     "discrete_norm_1",
     "discrete_norm_2",
-    "discrete_norm_p",
     "discrete_norm_inf",
-    "discrete_norm_weighted_2",
     "all_discrete_norms",
     # continuous norms
     "continuous_norm_1",
     "continuous_norm_2",
-    "continuous_norm_p",
     "continuous_norm_inf",
-    "continuous_norm_weighted_2",
     "all_continuous_norms",
     # error analysis
     "approximation_error_discrete",
