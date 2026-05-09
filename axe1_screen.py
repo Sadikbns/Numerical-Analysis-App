@@ -70,18 +70,11 @@ SAFE_FUNCTIONS = {
     "e": math.e,
 }
 
-class Axe1Screen(tk.Tk):
+class Axe1Screen(tk.Frame):
 
-    def __init__(self):
-        super().__init__()
-        self.title("Axe 1 — Function Analysis")
-        sw = self.winfo_screenwidth()
-        sh = self.winfo_screenheight()
-        w = min(1020, sw - 80)
-        h = min(720, sh - 80)
-        self.geometry(f"{w}x{h}")
-        self.minsize(min(880, w), min(600, h))
-        self.configure(bg=COLORS["bg"])
+    def __init__(self, parent, back_callback=None):
+        super().__init__(parent, bg=COLORS["bg"])
+        self._back_callback = back_callback
 
         self._last_table_data = []
         self._last_table_cols = []
@@ -104,7 +97,7 @@ class Axe1Screen(tk.Tk):
         bar.pack(fill="x")
         bar.pack_propagate(False)
 
-        back = _button(bar, "  Retour", bg=COLORS["primary_btn"],
+        back = _button(bar, "← Retour", bg=COLORS["primary_btn"],
                     cmd=self._back, pad_x=14, pad_y=8)
         back.pack(side="left", padx=12, pady=8)
 
@@ -680,10 +673,13 @@ class Axe1Screen(tk.Tk):
             self._show_error("Erreur", str(ex))
 
     def _back(self):
-        import subprocess, sys
-        path = os.path.join(os.path.dirname(__file__), "main_screen.py")
-        subprocess.Popen([sys.executable, path])
-        self.destroy()
+        if self._back_callback:
+            self._back_callback()
+        else:
+            import subprocess, sys
+            path = os.path.join(os.path.dirname(__file__), "main_screen.py")
+            subprocess.Popen([sys.executable, path])
+            self.winfo_toplevel().destroy()
 
 
 if __name__ == "__main__":

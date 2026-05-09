@@ -24,7 +24,7 @@ from linear_systems_resolution import (
 )
 
 
-class Axe2Screen(tk.Tk):
+class Axe2Screen(tk.Frame):
     """
     Axe 2 — Linear Systems (fully functional)
     Layout mirrors Axe 3:
@@ -32,15 +32,9 @@ class Axe2Screen(tk.Tk):
       Right panel : result text box + matplotlib figure (plot + table inside figure)
     """
 
-    def __init__(self):
-        super().__init__()
-        self.title("Axe 2 — Linear Systems")
-        sw = self.winfo_screenwidth()
-        sh = self.winfo_screenheight()
-        w = min(1150, sw - 80)
-        h = min(820, sh - 80)
-        self.geometry(f"{w}x{h}")
-        self.configure(bg="#f0f4f8")
+    def __init__(self, parent, back_callback=None):
+        super().__init__(parent, bg="#f0f4f8")
+        self._back_callback = back_callback
         self._matrix_entries = []
         self._b_entries = []
         self._current_fig = None
@@ -65,12 +59,12 @@ class Axe2Screen(tk.Tk):
         bar = tk.Frame(self, bg="#2980b9", height=55)
         bar.pack(fill="x")
         tk.Button(
-            bar, text="← Main", bg="#1a6499", fg="white",
+            bar, text="← Retour", bg="#1a6499", fg="white",
             font=("Helvetica", 10), relief="flat", cursor="hand2",
             command=self._back,
         ).pack(side="left", padx=10, pady=12)
         tk.Label(
-            bar, text="Axe 2 — Linear Systems",
+            bar, text="Axe 2 — Systèmes Linéaires",
             bg="#2980b9", fg="white", font=("Helvetica", 16, "bold"),
         ).pack(side="left", padx=10)
 
@@ -80,12 +74,12 @@ class Axe2Screen(tk.Tk):
         frame.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
 
         # ── Matrix size + input ──
-        size_lf = tk.LabelFrame(frame, text="User Inputs", bg="#f0f4f8",
+        size_lf = tk.LabelFrame(frame, text="Entrées Utilisateur", bg="#f0f4f8",
                                 fg="#2980b9", font=("Helvetica", 11, "bold"),
                                 padx=10, pady=8)
         size_lf.pack(fill="x", pady=(0, 8))
 
-        tk.Label(size_lf, text="System size (n × n), max 4:",
+        tk.Label(size_lf, text="Taille du système (n × n), max 4 :",
                  bg="#f0f4f8", font=("Helvetica", 10)).pack(anchor="w")
         size_row = tk.Frame(size_lf, bg="#f0f4f8")
         size_row.pack(anchor="w", pady=(2, 6))
@@ -95,7 +89,7 @@ class Axe2Screen(tk.Tk):
                            value=n, bg="#f0f4f8", command=self._rebuild_matrix,
                            font=("Helvetica", 10)).pack(side="left", padx=4)
 
-        tk.Label(size_lf, text="Linear system  Ax = b :",
+        tk.Label(size_lf, text="Système linéaire  Ax = b :",
                  bg="#f0f4f8", font=("Helvetica", 10, "italic")).pack(anchor="w")
 
         self.matrix_frame = tk.Frame(size_lf, bg="#f0f4f8")
@@ -103,14 +97,14 @@ class Axe2Screen(tk.Tk):
         self._rebuild_matrix()
 
         # ── Iterative parameters ──
-        iter_lf = tk.LabelFrame(frame, text="Iterative Parameters",
+        iter_lf = tk.LabelFrame(frame, text="Paramètres Itératifs",
                                 bg="#f0f4f8", fg="#2980b9",
                                 font=("Helvetica", 11, "bold"), padx=10, pady=6)
         iter_lf.pack(fill="x", pady=(0, 8))
 
         row_tol = tk.Frame(iter_lf, bg="#f0f4f8")
         row_tol.pack(fill="x", pady=2)
-        tk.Label(row_tol, text="Tolerance (ε):", bg="#f0f4f8",
+        tk.Label(row_tol, text="Tolérance (ε) :", bg="#f0f4f8",
                  font=("Helvetica", 10)).pack(side="left")
         self.tol_entry = tk.Entry(row_tol, width=10, font=("Courier", 10),
                                   relief="solid", bd=1)
@@ -119,7 +113,7 @@ class Axe2Screen(tk.Tk):
 
         row_iter = tk.Frame(iter_lf, bg="#f0f4f8")
         row_iter.pack(fill="x", pady=2)
-        tk.Label(row_iter, text="Max iterations:", bg="#f0f4f8",
+        tk.Label(row_iter, text="Itérations max :", bg="#f0f4f8",
                  font=("Helvetica", 10)).pack(side="left")
         self.maxiter_entry = tk.Entry(row_iter, width=6, font=("Courier", 10),
                                       relief="solid", bd=1)
@@ -131,16 +125,16 @@ class Axe2Screen(tk.Tk):
         self.extra_frame.pack(fill="x", pady=(0, 4))
 
         # ── Matrix operations ──
-        act_lf = tk.LabelFrame(frame, text="Matrix Operations",
+        act_lf = tk.LabelFrame(frame, text="Opérations Matricielles",
                                bg="#f0f4f8", fg="#2980b9",
                                font=("Helvetica", 11, "bold"), padx=10, pady=8)
         act_lf.pack(fill="x", pady=(0, 8))
 
         ops = [
-            ("Induced Norms  (‖A‖₁  ‖A‖₂  ‖A‖∞)", self._show_norms),
-            ("Determinant & Rank",                   self._show_det_rank),
-            ("Check DDS / SPD",                      self._show_convergence_check),
-            ("Spectral Radius  ρ(A)",                self._show_spectral_radius),
+            ("Normes induites  (‖A‖₁  ‖A‖₂  ‖A‖∞)", self._show_norms),
+            ("Déterminant & Rang",                     self._show_det_rank),
+            ("Vérifier SDD / DPS",                     self._show_convergence_check),
+            ("Rayon spectral  ρ(A)",                   self._show_spectral_radius),
         ]
         for label, cmd in ops:
             tk.Button(act_lf, text=label, bg="#eaf4fb", fg="#1a6499",
@@ -149,7 +143,7 @@ class Axe2Screen(tk.Tk):
                       command=cmd).pack(pady=3, anchor="w")
 
         # ── Algorithm selector ──
-        alg_lf = tk.LabelFrame(frame, text="Algorithm", bg="#f0f4f8",
+        alg_lf = tk.LabelFrame(frame, text="Algorithme", bg="#f0f4f8",
                                fg="#2980b9", font=("Helvetica", 11, "bold"),
                                padx=10, pady=8)
         alg_lf.pack(fill="x", pady=(0, 8))
@@ -166,7 +160,7 @@ class Axe2Screen(tk.Tk):
                            command=self._update_extra,
                            font=("Helvetica", 10)).pack(anchor="w")
 
-        indirect_lf = tk.LabelFrame(alg_lf, text="Iterative  (requires DDS matrix)",
+        indirect_lf = tk.LabelFrame(alg_lf, text="Itératif  (nécessite une matrice SDD)",
                                     bg="#f0f4f8", fg="#e67e22",
                                     font=("Helvetica", 9, "bold"))
         indirect_lf.pack(fill="x")
@@ -176,7 +170,7 @@ class Axe2Screen(tk.Tk):
                            command=self._update_extra,
                            font=("Helvetica", 10)).pack(anchor="w")
 
-        tk.Button(frame, text="▶  Run Algorithm", bg="#2980b9", fg="white",
+        tk.Button(frame, text="▶  Lancer l'algorithme", bg="#2980b9", fg="white",
                   font=("Helvetica", 12, "bold"), relief="flat",
                   cursor="hand2", height=2,
                   command=self._run_algorithm).pack(fill="x", pady=6)
@@ -220,7 +214,7 @@ class Axe2Screen(tk.Tk):
         if self.algo_var.get() == "Relaxation":
             row = tk.Frame(self.extra_frame, bg="#f0f4f8")
             row.pack(anchor="w", pady=2)
-            tk.Label(row, text="Relaxation ω (0 < ω < 2):", bg="#f0f4f8",
+            tk.Label(row, text="Facteur de relaxation ω (0 < ω < 2) :", bg="#f0f4f8",
                      font=("Helvetica", 10)).pack(side="left")
             self.omega_entry = tk.Entry(row, width=6, font=("Courier", 10),
                                         relief="solid", bd=1)
@@ -232,13 +226,13 @@ class Axe2Screen(tk.Tk):
         frame = tk.Frame(parent, bg="#f0f4f8")
         frame.grid(row=0, column=1, sticky="nsew")
 
-        self.result_frame = tk.LabelFrame(frame, text="Results", bg="#f0f4f8",
+        self.result_frame = tk.LabelFrame(frame, text="Résultats", bg="#f0f4f8",
                                           fg="#2c3e50",
                                           font=("Helvetica", 11, "bold"))
         self.result_frame.pack(fill="both", expand=True, padx=8, pady=8)
 
         # Result text box
-        res_lf = tk.LabelFrame(self.result_frame, text="Result",
+        res_lf = tk.LabelFrame(self.result_frame, text="Résultat",
                                bg="#f0f4f8", fg="#2980b9")
         res_lf.pack(fill="x", padx=8, pady=6)
         self.result_text = tk.Text(res_lf, height=4, font=("Courier", 10),
@@ -248,10 +242,10 @@ class Axe2Screen(tk.Tk):
         # Download buttons
         dl = tk.Frame(self.result_frame, bg="#f0f4f8")
         dl.pack(pady=(0, 4))
-        tk.Button(dl, text="⬇ Download Graph", bg="#2980b9", fg="white",
+        tk.Button(dl, text="⬇ Télécharger le graphe", bg="#2980b9", fg="white",
                   font=("Helvetica", 10), relief="flat", cursor="hand2",
                   command=self._download_graph).pack(side="left", padx=6)
-        tk.Button(dl, text="⬇ Download Table", bg="#8e44ad", fg="white",
+        tk.Button(dl, text="⬇ Télécharger le tableau", bg="#8e44ad", fg="white",
                   font=("Helvetica", 10), relief="flat", cursor="hand2",
                   command=self._download_table).pack(side="left", padx=6)
 
@@ -291,12 +285,12 @@ class Axe2Screen(tk.Tk):
             n2 = induced_matrix_norm(A, 2)
             ni = induced_matrix_norm(A, np.inf)
             self._set_result(
-                f"‖A‖₁  (max col sum) = {n1:.6f}\n"
-                f"‖A‖₂  (spectral)    = {n2:.6f}\n"
-                f"‖A‖∞  (max row sum) = {ni:.6f}"
+                f"‖A‖₁  (max somme col) = {n1:.6f}\n"
+                f"‖A‖₂  (spectrale)     = {n2:.6f}\n"
+                f"‖A‖∞  (max somme lig) = {ni:.6f}"
             )
         except Exception as e:
-            messagebox.showerror("Error", str(e))
+            messagebox.showerror("Erreur", str(e))
 
     def _show_det_rank(self):
         try:
@@ -305,34 +299,34 @@ class Axe2Screen(tk.Tk):
             rank = np.linalg.matrix_rank(A)
             self._set_result(f"det(A)  = {det:.6f}\nrank(A) = {rank}")
         except Exception as e:
-            messagebox.showerror("Error", str(e))
+            messagebox.showerror("Erreur", str(e))
 
     def _show_convergence_check(self):
         try:
             A, _ = self._read_matrix()
             dds = is_strictly_diagonally_dominant(A)
             spd = is_symmetric_positive_definite(A)
-            verdict = ("✔ DDS satisfied — iterative methods guaranteed to converge."
+            verdict = ("✔ SDD satisfaite — convergence des méthodes itératives garantie."
                        if dds else
-                       "✘ DDS not satisfied — iterative methods may diverge.")
+                       "✘ SDD non satisfaite — les méthodes itératives peuvent diverger.")
             self._set_result(
-                f"Strictly Diagonally Dominant (DDS): {dds}\n"
-                f"Symmetric Positive Definite   (SPD): {spd}\n"
+                f"Strictement Diagonalement Dominante (SDD) : {dds}\n"
+                f"Définie Positive Symétrique          (DPS) : {spd}\n"
                 f"{verdict}"
             )
         except Exception as e:
-            messagebox.showerror("Error", str(e))
+            messagebox.showerror("Erreur", str(e))
 
     def _show_spectral_radius(self):
         try:
             A, _ = self._read_matrix()
             rho = spectral_radius(A)
-            verdict = ("✔ ρ < 1 — iterative method converges."
+            verdict = ("✔ ρ < 1 — la méthode itérative converge."
                        if rho < 1 else
-                       "✘ ρ ≥ 1 — iterative method may not converge.")
-            self._set_result(f"Spectral radius ρ(A) = {rho:.6f}\n{verdict}")
+                       "✘ ρ ≥ 1 — la méthode itérative peut ne pas converger.")
+            self._set_result(f"Rayon spectral ρ(A) = {rho:.6f}\n{verdict}")
         except Exception as e:
-            messagebox.showerror("Error", str(e))
+            messagebox.showerror("Erreur", str(e))
 
     # ── Run algorithm ─────────────────────────────────────────────
     def _run_algorithm(self):
@@ -353,9 +347,9 @@ class Axe2Screen(tk.Tk):
             if algo == "Cholesky":
                 if not is_symmetric_positive_definite(A):
                     messagebox.showerror(
-                        "Invalid Matrix",
-                        "Cholesky requires a Symmetric Positive Definite (SPD) matrix.\n"
-                        "Use 'Check DDS / SPD' to verify your matrix first."
+                        "Matrice invalide",
+                        "Cholesky nécessite une matrice Définie Positive Symétrique (DPS).\n"
+                        "Utilisez 'Vérifier SDD / DPS' pour valider votre matrice."
                     )
                     return
 
@@ -363,10 +357,10 @@ class Axe2Screen(tk.Tk):
                 if not is_strictly_diagonally_dominant(A):
                     # Warn but still allow — convergence not guaranteed
                     proceed = messagebox.askyesno(
-                        "Warning",
-                        "The matrix is not Strictly Diagonally Dominant (DDS).\n"
-                        "The iterative method may not converge.\n\n"
-                        "Proceed anyway?"
+                        "Avertissement",
+                        "La matrice n'est pas Strictement Diagonalement Dominante (SDD).\n"
+                        "La méthode itérative peut ne pas converger.\n\n"
+                        "Continuer quand même ?"
                     )
                     if not proceed:
                         return
@@ -374,8 +368,8 @@ class Axe2Screen(tk.Tk):
             if algo == "Relaxation":
                 omega = float(self.omega_entry.get()) if self.omega_entry else 1.25
                 if not (0 < omega < 2):
-                    messagebox.showerror("Invalid ω",
-                                         "Relaxation factor ω must satisfy 0 < ω < 2.")
+                    messagebox.showerror("Facteur ω invalide",
+                                         "Le facteur de relaxation ω doit satisfaire 0 < ω < 2.")
                     return
 
             # ── Direct methods ──────────────────────────────────
@@ -429,7 +423,7 @@ class Axe2Screen(tk.Tk):
                 self._plot_iterative(history, algo)
 
         except Exception as e:
-            messagebox.showerror("Error", f"Execution failed:\n{str(e)}")
+            messagebox.showerror("Erreur", f"Échec de l'exécution :\n{str(e)}")
 
     # ── Relaxation (SOR) ──────────────────────────────────────────
     def _relaxation(self, A, b, x0, omega, tol, max_iter):
@@ -459,52 +453,52 @@ class Axe2Screen(tk.Tk):
 
         table_rows = [[f"x{i+1}", f"{x[i]:.8f}", f"{residuals[i]:.2e}"]
                       for i in range(n)]
-        self._current_table_data = (["Variable", "Value", "|rᵢ|"], table_rows)
+        self._current_table_data = (["Variable", "Valeur", "|rᵢ|"], table_rows)
 
         fig = Figure(figsize=(10, 8), dpi=100)
         gs  = fig.add_gridspec(3, 2, height_ratios=[3, 3, 2],
                                hspace=0.55, wspace=0.4)
 
-        # Residual bar chart
+        # Diagramme en barres des résidus
         ax1 = fig.add_subplot(gs[0, 0])
         ax1.bar([f"eq{i+1}" for i in range(n)], residuals,
                 color="#2980b9", edgecolor="white")
-        ax1.set_title("Residual |Ax − b| per equation")
+        ax1.set_title("Résidu |Ax − b| par équation")
         ax1.set_ylabel("|rᵢ|")
         ax1.set_yscale("symlog", linthresh=1e-14)
         ax1.grid(axis="y", alpha=0.4)
 
-        # Solution bar chart
+        # Diagramme en barres de la solution
         ax2 = fig.add_subplot(gs[0, 1])
         ax2.bar([f"x{i+1}" for i in range(n)], x,
                 color="#27ae60", edgecolor="white")
-        ax2.set_title("Solution vector x")
+        ax2.set_title("Vecteur solution x")
         ax2.grid(axis="y", alpha=0.4)
 
-        # Upper-triangular heatmap
+        # Carte de chaleur triangulaire supérieure
         ax3 = fig.add_subplot(gs[1, 0])
         im  = ax3.imshow(np.abs(U), cmap="Blues", aspect="auto")
         fig.colorbar(im, ax=ax3)
-        ax3.set_title("Upper triangular |U|")
+        ax3.set_title("Triangulaire supérieure |U|")
 
-        # Eigenvalue scatter
+        # Nuage de valeurs propres
         ax4  = fig.add_subplot(gs[1, 1])
         cond = np.linalg.cond(A)
         eigs = np.linalg.eigvals(A)
         ax4.scatter(eigs.real, eigs.imag, color="#8e44ad", s=80, zorder=5)
         ax4.axhline(0, color="gray", lw=0.8)
         ax4.axvline(0, color="gray", lw=0.8)
-        ax4.set_title(f"Eigenvalues  (κ = {cond:.2e})")
+        ax4.set_title(f"Valeurs propres  (κ = {cond:.2e})")
         ax4.set_xlabel("Re")
         ax4.set_ylabel("Im")
         ax4.grid(True, alpha=0.3)
 
-        # Solution table inside figure
+        # Tableau de la solution dans la figure
         ax_tbl = fig.add_subplot(gs[2, :])
         ax_tbl.axis("off")
         tbl = ax_tbl.table(
             cellText=table_rows,
-            colLabels=["Variable", "Value", "|rᵢ|"],
+            colLabels=["Variable", "Valeur", "|rᵢ|"],
             cellLoc="center", loc="center"
         )
         tbl.auto_set_font_size(False)
@@ -534,8 +528,8 @@ class Axe2Screen(tk.Tk):
         # Convergence curve
         ax = fig.add_subplot(gs[0])
         ax.semilogy(ks, errs, "b-o", markersize=4, label="‖xₖ₊₁ − xₖ‖∞")
-        ax.set_xlabel("Iteration k")
-        ax.set_ylabel("Error (log scale)")
+        ax.set_xlabel("Itération k")
+        ax.set_ylabel("Erreur (échelle log)")
         ax.set_title(f"{title} — Convergence")
         ax.legend()
         ax.grid(True, alpha=0.3)
@@ -569,30 +563,30 @@ class Axe2Screen(tk.Tk):
     # ── Format solution ───────────────────────────────────────────
     def _format_solution(self, x):
         lines = [f"x{i+1} = {v:.8f}" for i, v in enumerate(x)]
-        return "Solution x:\n" + "\n".join(lines)
+        return "Solution x :\n" + "\n".join(lines)
 
     # ── Downloads ─────────────────────────────────────────────────
     def _download_graph(self):
         if self._current_fig is None:
-            messagebox.showinfo("Info", "No graph to save. Run an algorithm first.")
+            messagebox.showinfo("Info", "Aucun graphe à sauvegarder. Lancez d'abord un algorithme.")
             return
         path = filedialog.asksaveasfilename(
             defaultextension=".png",
-            filetypes=[("PNG Image", "*.png"), ("PDF", "*.pdf")],
-            title="Save Graph",
+            filetypes=[("Image PNG", "*.png"), ("PDF", "*.pdf")],
+            title="Sauvegarder le graphe",
         )
         if path:
             self._current_fig.savefig(path, dpi=150, bbox_inches="tight")
-            messagebox.showinfo("Saved", f"Graph saved to:\n{path}")
+            messagebox.showinfo("Sauvegardé", f"Graphe sauvegardé :\n{path}")
 
     def _download_table(self):
         if self._current_table_data is None:
-            messagebox.showinfo("Info", "No table to save. Run an algorithm first.")
+            messagebox.showinfo("Info", "Aucun tableau à sauvegarder. Lancez d'abord un algorithme.")
             return
         path = filedialog.asksaveasfilename(
             defaultextension=".csv",
-            filetypes=[("CSV file", "*.csv")],
-            title="Save Table",
+            filetypes=[("Fichier CSV", "*.csv")],
+            title="Sauvegarder le tableau",
         )
         if path:
             cols, rows = self._current_table_data
@@ -600,14 +594,17 @@ class Axe2Screen(tk.Tk):
                 writer = csv.writer(f)
                 writer.writerow(cols)
                 writer.writerows(rows)
-            messagebox.showinfo("Saved", f"Table saved to:\n{path}")
+            messagebox.showinfo("Sauvegardé", f"Tableau sauvegardé :\n{path}")
 
     # ── Back ──────────────────────────────────────────────────────
     def _back(self):
-        import subprocess
-        path = os.path.join(os.path.dirname(__file__), "main_screen.py")
-        subprocess.Popen([sys.executable, path])
-        self.destroy()
+        if self._back_callback:
+            self._back_callback()
+        else:
+            import subprocess
+            path = os.path.join(os.path.dirname(__file__), "main_screen.py")
+            subprocess.Popen([sys.executable, path])
+            self.winfo_toplevel().destroy()
 
 
 if __name__ == "__main__":

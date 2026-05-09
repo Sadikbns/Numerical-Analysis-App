@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 #  Interpolation
 # ─────────────────────────────────────────────────────────────────────────────
 if not hasattr(np, 'trapezoid'):
-    np.trapezoid = np.trapz
+    np.trapezoid = np.trapezoid
     
 def lagrange_interpolation(x_nodes, y_nodes):
     x = sp.symbols("x")
@@ -197,13 +197,13 @@ def all_discrete_norms(values):
 def continuous_norm_1(func, a, b, n_pts=2000):
     """‖f‖₁ = ∫_a^b |f(x)| dx"""
     xs = np.linspace(a, b, n_pts)
-    return float(np.trapz(np.abs(func(xs)), xs))
+    return float(np.trapezoid(np.abs(func(xs)), xs))
 
 
 def continuous_norm_2(func, a, b, n_pts=2000):
     """‖f‖₂ = √(∫_a^b f(x)² dx)"""
     xs = np.linspace(a, b, n_pts)
-    return float(np.sqrt(np.trapz(func(xs) ** 2, xs)))
+    return float(np.sqrt(np.trapezoid(func(xs) ** 2, xs)))
 
 
 def continuous_norm_inf(func, a, b, n_pts=5000):

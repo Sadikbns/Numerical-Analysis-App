@@ -59,14 +59,14 @@ SAFE = {
     "abs": np.abs, "pi": math.pi, "e": math.e,
 }
 
-METHODS   = ("Lagrange", "Newton", "Least Squares", "Chebyshev", "Gradient Descent")
+METHODS   = ("Lagrange", "Newton", "Moindres Carrés", "Chebyshev", "Descente de Gradient")
 EXAMPLES  = ("sin(x)", "cos(x)", "exp(-x**2)", "1/(1+25*x**2)")
 METHOD_TAG = {
     "Lagrange":         "Interpolation",
     "Newton":           "Differences Div.",
-    "Least Squares":    "Approximation",
+    "Moindres Carrés":    "Approximation",
     "Chebyshev":        "Minimax",
-    "Gradient Descent": "Optimisation",
+    "Descente de Gradient": "Optimisation",
 }
 STATS_DEF = (
     ("mse",   "MSE / err"),
@@ -185,17 +185,12 @@ def show_dialog(root, title, msg, kind="info"):
 
 
 # ── Main screen ───────────────────────────────────────────────────────────────
-class Axe3Screen(tk.Tk):
+class Axe3Screen(tk.Frame):
     """Axe 3 — Interpolation / Approximation"""
 
-    def __init__(self):
-        super().__init__()
-        self.title("Axe 3 — Interpolation / Approximation")
-        sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
-        w, h   = min(1200, sw - 80), min(860, sh - 80)
-        self.geometry(f"{w}x{h}")
-        self.minsize(min(1020, w), min(660, h))
-        self.configure(bg=COLORS["bg"])
+    def __init__(self, parent, back_callback=None):
+        super().__init__(parent, bg=COLORS["bg"])
+        self._back_callback = back_callback
 
         # State
         self._last_y_approx      = None
@@ -221,7 +216,7 @@ class Axe3Screen(tk.Tk):
         bar.pack(fill="x")
         bar.pack_propagate(False)
 
-        _button(bar, "  Retour", bg=COLORS["primary_btn"],
+        _button(bar, "← Retour", bg=COLORS["primary_btn"],
                 cmd=self._back, pad_x=14, pad_y=8).pack(side="left", padx=12, pady=8)
 
         _text(bar, "Axe 3 — Interpolation / Approximation",
@@ -383,7 +378,7 @@ class Axe3Screen(tk.Tk):
             w.destroy()
         method = self.method_var.get()
 
-        if method == "Least Squares":
+        if method == "Moindres Carrés":
             _line(self.extra_frame).pack(fill="x", pady=(0, 6))
             _text(self.extra_frame, "Degre du polynome :",
                   color=COLORS["text_label"]).pack(anchor="w")
@@ -420,7 +415,7 @@ class Axe3Screen(tk.Tk):
                                selectcolor=COLORS["primary_mid"],
                                font=("Helvetica", 10)).pack(side="left", padx=10)
 
-        elif method == "Gradient Descent":
+        elif method == "Descente de Gradient":
             _line(self.extra_frame).pack(fill="x", pady=(0, 6))
 
             # Highlighted box — mirrors axe1's x0_outer style
@@ -604,7 +599,7 @@ class Axe3Screen(tk.Tk):
             real_func   = None
             mse_s = deg_s = nodes_s = "--"
 
-            if method in ("Lagrange", "Newton", "Least Squares") and len(x_data) < 2:
+            if method in ("Lagrange", "Newton", "Moindres Carrés") and len(x_data) < 2:
                 show_dialog(self, "Entree invalide",
                             "Au moins 2 points requis.", "warn")
                 self._set_pill("erreur", "error")
@@ -625,7 +620,7 @@ class Axe3Screen(tk.Tk):
                 nodes_s     = len(x_data)
                 deg_s       = len(x_data) - 1
 
-            elif method == "Least Squares":
+            elif method == "Moindres Carrés":
                 degree      = self.degree_var.get()
                 func_str    = self.func_entry.get()
                 func_sym    = sp.sympify(func_str)
@@ -653,7 +648,7 @@ class Axe3Screen(tk.Tk):
                 y_data    = [float(real_func(xi)) for xi in x_data]
                 self._last_interval = (a, b)
 
-            elif method == "Gradient Descent":
+            elif method == "Descente de Gradient":
                 func_str = self.gd_func_entry.get()
                 vars_str = self.gd_vars_entry.get()
                 x0_str   = self.gd_x0_entry.get()
@@ -701,7 +696,7 @@ class Axe3Screen(tk.Tk):
 
             # ── Update UI ─────────────────────────────────────────────────────
             self.poly_text.delete("1.0", tk.END)
-            prefix = "" if method == "Gradient Descent" else "P(x) = "
+            prefix = "" if method == "Descente de Gradient" else "P(x) = "
             self.poly_text.insert("1.0", prefix + result_text)
 
             self._last_y_approx  = y_approx
@@ -711,7 +706,7 @@ class Axe3Screen(tk.Tk):
 
             self._set_stats(mse_s, deg_s, nodes_s)
 
-            if method == "Gradient Descent":
+            if method == "Descente de Gradient":
                 self._plot_gradient_descent(history, obj_vals)
                 converged = history[-1][1] <= tol
                 self._set_conv_badge(converged,
@@ -796,7 +791,7 @@ class Axe3Screen(tk.Tk):
         ax2.set_ylabel("Norme du gradient", color=COLORS["orange"], fontsize=9)
         ax2.tick_params(colors=COLORS["text_muted"], labelsize=8)
 
-        ax1.set_title("Convergence — Gradient Descent",
+        ax1.set_title("Convergence — Descente de Gradient",
                       color=COLORS["text"], fontsize=10, fontweight="bold")
         lines1, lab1 = ax1.get_legend_handles_labels()
         lines2, lab2 = ax2.get_legend_handles_labels()
@@ -875,7 +870,7 @@ class Axe3Screen(tk.Tk):
             if self._last_real_func is None:
                 show_dialog(self, "Erreur",
                             "L'erreur continue necessite une fonction reelle.\n"
-                            "Utilisez Least Squares ou Chebyshev.",
+                            "Utilisez Moindres Carrés ou Chebyshev.",
                             "warn")
                 return
             a, b = self._last_interval
@@ -927,10 +922,13 @@ class Axe3Screen(tk.Tk):
             self._show_error("Erreur", str(ex))
 
     def _back(self):
-        import subprocess
-        path = os.path.join(os.path.dirname(__file__), "main_screen.py")
-        subprocess.Popen([sys.executable, path])
-        self.destroy()
+        if self._back_callback:
+            self._back_callback()
+        else:
+            import subprocess
+            path = os.path.join(os.path.dirname(__file__), "main_screen.py")
+            subprocess.Popen([sys.executable, path])
+            self.winfo_toplevel().destroy()
 
 
 if __name__ == "__main__":
