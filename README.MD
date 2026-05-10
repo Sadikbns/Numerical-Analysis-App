@@ -39,6 +39,7 @@ L'application est structurée en **trois axes** principaux :
 ---
 
 ## Structure du Projet
+```
 Numerical Analysis App/
 ├── main_screen.py
 ├── axe1_screen.py
@@ -48,8 +49,10 @@ Numerical Analysis App/
 │   ├── chap 1/
 │   ├── chap 2 and 3/
 │   └── chap 4 and 5/
+├── ui/
+│   └── axe1_widgets.py # Widgets personnalisés
 └── README.md
-
+```
 
 ---
 

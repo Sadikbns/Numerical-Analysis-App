@@ -390,7 +390,7 @@ class Axe1Screen(tk.Frame):
             self._conv_lbl.config(text="converge",
                                    bg="#e8f5e9", fg=COLORS["success_fg"])
         else:
-            self._conv_lbl.config(text="non converge",
+            self._conv_lbl.config(text="Diverge",
                                    bg=COLORS["err_bg"], fg=COLORS["err_fg"])
 
     def _show_error(self, title, text):
@@ -416,7 +416,7 @@ class Axe1Screen(tk.Frame):
             msg += f"\n{note}"
         self._show_result(msg, "ok" if converged else "warn")
         self._plot(f, a, b, root)
-        self._set_pill("converge" if converged else "non converge",
+        self._set_pill("converge" if converged else "Diverge",
                        "ok" if converged else "warn")
 
     def _parse_function(self):
@@ -520,7 +520,7 @@ class Axe1Screen(tk.Frame):
         root = history[-1][2]
         err = history[-1][3]
         converged = err < tol
-        note = None if converged else "Non converge — verifiez la contractante."
+        note = None if converged else "Diverge — verifiez la contractante."
         self._finish_algorithm(
             f, a, b, root, err, rows, COLS["Point Fixe"], converged, note)
 
@@ -541,7 +541,7 @@ class Axe1Screen(tk.Frame):
         root = history[-1][2]
         err = history[-1][3]
         converged = err < tol
-        note = None if converged else "Non converge — essayez un autre x0."
+        note = None if converged else "Diverge — essayez un autre x0."
         self._finish_algorithm(
             f, a, b, root, err, rows, COLS["Newton"], converged, note)
 
