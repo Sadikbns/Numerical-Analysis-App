@@ -5,7 +5,7 @@ from tkinter import ttk, font
 class MainScreen(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Outil d'Analyse Numérique")
+        self.title("Numerical Analysis App")
         sw = self.winfo_screenwidth()
         sh = self.winfo_screenheight()
         self._main_w = min(800, sw - 80)
@@ -36,7 +36,7 @@ class MainScreen(tk.Tk):
         title_frame.pack(fill="x")
         tk.Label(
             title_frame,
-            text="Outil d'Analyse Numérique",
+            text="Numerical Analysis App",
             bg="#2c3e50",
             fg="white",
             font=("Helvetica", 20, "bold"),
